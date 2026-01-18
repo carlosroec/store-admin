@@ -13,6 +13,20 @@ interface ImageUploadProps {
   folder?: string;
 }
 
+// Extract public ID from Cloudinary URL
+function extractPublicId(url: string): string | null {
+  try {
+    // URL format: https://res.cloudinary.com/CLOUD_NAME/image/upload/v123456789/folder/filename.ext
+    const match = url.match(/\/upload\/(?:v\d+\/)?(.+?)(?:\.[^.]+)?$/);
+    if (match) {
+      return match[1];
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export function ImageUpload({
   images,
   onChange,
@@ -20,6 +34,7 @@ export function ImageUpload({
   folder = "products"
 }: ImageUploadProps) {
   const [uploading, setUploading] = useState(false);
+  const [deleting, setDeleting] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -138,8 +153,40 @@ export function ImageUpload({
     }
   }, [handleFiles]);
 
-  const removeImage = useCallback((index: number) => {
-    onChange(images.filter((_, i) => i !== index));
+  const removeImage = useCallback(async (index: number) => {
+    const imageUrl = images[index];
+
+    // Confirm deletion
+    if (!confirm('Are you sure you want to delete this image? This action cannot be undone.')) {
+      return;
+    }
+
+    setDeleting(index);
+    setError(null);
+
+    try {
+      // Extract public ID from URL and delete from Cloudinary
+      const publicId = extractPublicId(imageUrl);
+      if (publicId) {
+        const response = await fetch("/api/cloudinary-delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ publicId })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to delete image");
+        }
+      }
+
+      // Remove from local state
+      onChange(images.filter((_, i) => i !== index));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete image");
+    } finally {
+      setDeleting(null);
+    }
   }, [images, onChange]);
 
   const moveImage = useCallback((fromIndex: number, toIndex: number) => {
@@ -207,70 +254,85 @@ export function ImageUpload({
       {/* Image Preview Grid */}
       {images.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-          {images.map((url, index) => (
-            <div
-              key={url}
-              className="relative group aspect-square bg-gray-100 rounded-lg overflow-hidden"
-            >
-              <img
-                src={getOptimizedImageUrl(url, { width: 200, height: 200, crop: 'fill' })}
-                alt={`Product ${index + 1}`}
-                className="w-full h-full object-cover"
-              />
+          {images.map((url, index) => {
+            const isDeleting = deleting === index;
+            return (
+              <div
+                key={url}
+                className={`relative group aspect-square bg-gray-100 rounded-lg overflow-hidden ${isDeleting ? 'opacity-50' : ''}`}
+              >
+                <img
+                  src={getOptimizedImageUrl(url, { width: 200, height: 200, crop: 'fill' })}
+                  alt={`Product ${index + 1}`}
+                  className="w-full h-full object-cover"
+                />
 
-              {/* Overlay with actions */}
-              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100">
-                <div className="flex gap-1">
-                  {/* Move left */}
-                  {index > 0 && (
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); moveImage(index, index - 1); }}
-                      className="p-1.5 bg-white rounded-full text-gray-700 hover:bg-gray-100"
-                      title="Move left"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                      </svg>
-                    </button>
-                  )}
-
-                  {/* Move right */}
-                  {index < images.length - 1 && (
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); moveImage(index, index + 1); }}
-                      className="p-1.5 bg-white rounded-full text-gray-700 hover:bg-gray-100"
-                      title="Move right"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </button>
-                  )}
-
-                  {/* Remove */}
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); removeImage(index); }}
-                    className="p-1.5 bg-red-500 rounded-full text-white hover:bg-red-600"
-                    title="Remove"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                {/* Deleting overlay */}
+                {isDeleting && (
+                  <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
+                    <svg className="animate-spin h-8 w-8 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                  </button>
-                </div>
-              </div>
+                  </div>
+                )}
 
-              {/* Primary badge */}
-              {index === 0 && (
-                <span className="absolute top-2 left-2 px-2 py-0.5 bg-primary-600 text-white text-xs rounded-full">
-                  Primary
-                </span>
-              )}
-            </div>
-          ))}
+                {/* Overlay with actions */}
+                {!isDeleting && (
+                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100">
+                    <div className="flex gap-1">
+                      {/* Move left */}
+                      {index > 0 && (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); moveImage(index, index - 1); }}
+                          className="p-1.5 bg-white rounded-full text-gray-700 hover:bg-gray-100"
+                          title="Move left"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                          </svg>
+                        </button>
+                      )}
+
+                      {/* Move right */}
+                      {index < images.length - 1 && (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); moveImage(index, index + 1); }}
+                          className="p-1.5 bg-white rounded-full text-gray-700 hover:bg-gray-100"
+                          title="Move right"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </button>
+                      )}
+
+                      {/* Remove */}
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); removeImage(index); }}
+                        className="p-1.5 bg-red-500 rounded-full text-white hover:bg-red-600"
+                        title="Remove"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Primary badge */}
+                {index === 0 && (
+                  <span className="absolute top-2 left-2 px-2 py-0.5 bg-primary-600 text-white text-xs rounded-full">
+                    Primary
+                  </span>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 

@@ -167,6 +167,25 @@ export class ApiClient {
         return data;
     }
 
+    // Delete image from Cloudinary
+    async deleteCloudinaryImage(token: string, publicId: string): Promise<{ success: boolean }> {
+        const response = await this.fetch(`${this.baseUrl}/api/cloudinary/delete`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ publicId }),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to delete image');
+        }
+
+        return response.json();
+    }
+
     async login(credentials: LoginCredentials): Promise<LoginResponse> {
         // Use native fetch for login - 401 here means invalid credentials, not expired session
         const response = await fetch(`${this.baseUrl}/api/auth/login`, {

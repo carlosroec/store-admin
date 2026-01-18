@@ -1,5 +1,5 @@
 import { json, redirect, type ActionFunctionArgs, type LoaderFunctionArgs } from "@remix-run/node";
-import { Form, useActionData, useNavigation, Link } from "@remix-run/react";
+import { Form, useActionData, useNavigation } from "@remix-run/react";
 import { Input } from "~/components/ui/Input";
 import { Button } from "~/components/ui/Button";
 import { Card } from "~/components/ui/Card";
@@ -109,31 +109,7 @@ export default function Login() {
               error={actionData?.errors?.password}
               required
             />
-            
-            {/* Remember Me & Forgot Password */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <input
-                  id="remember-me"
-                  name="remember-me"
-                  type="checkbox"
-                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                />
-                <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
-                  Remember me
-                </label>
-              </div>
-              
-              <div className="text-sm">
-                <Link
-                  to="/forgot-password"
-                  className="font-medium text-primary-600 hover:text-primary-500"
-                >
-                  Forgot password?
-                </Link>
-              </div>
-            </div>
-            
+
             {/* Submit Button */}
             <Button
               type="submit"
@@ -144,33 +120,7 @@ export default function Login() {
               Sign in
             </Button>
           </Form>
-          
-          {/* Register Link */}
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600">
-              Don't have an account?{' '}
-              <Link
-                to="/register"
-                className="font-medium text-primary-600 hover:text-primary-500"
-              >
-                Contact admin
-              </Link>
-            </p>
-          </div>
         </Card>
-        
-        {/* Demo Credentials */}
-        <div className="mt-4 text-center">
-          <details className="text-sm text-gray-500">
-            <summary className="cursor-pointer hover:text-gray-700">
-              Demo credentials
-            </summary>
-            <div className="mt-2 text-xs bg-gray-100 p-3 rounded">
-              <p>Email: demo@example.com</p>
-              <p>Password: demo123</p>
-            </div>
-          </details>
-        </div>
       </div>
     </div>
   );

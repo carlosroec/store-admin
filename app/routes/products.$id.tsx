@@ -1,10 +1,9 @@
-import { json, type LoaderFunctionArgs, type ActionFunctionArgs, redirect } from "@remix-run/node";
-import { useLoaderData, Form, Link, Outlet } from "@remix-run/react";
+import { json, type LoaderFunctionArgs } from "@remix-run/node";
+import { useLoaderData, Link } from "@remix-run/react";
 import { requireUserToken } from "~/lib/auth.server";
 import { api } from "~/lib/api.server";
 import { DashboardLayout } from "~/components/layout/DashboardLayout";
 import { Card } from "~/components/ui/Card";
-import { Button } from "~/components/ui/Button";
 import { OptimizedImage } from "~/components/ui/OptimizedImage";
 import { MarkdownPreview } from "~/components/ui/MarkdownEditor";
 
@@ -13,25 +12,6 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   const productData = await api.getProduct(token, params.id!);
   
   return json({ product: productData.product });
-}
-
-export async function action({ request, params }: ActionFunctionArgs) {
-  const token = await requireUserToken(request);
-  const formData = await request.formData();
-  const action = formData.get('_action');
-
-  if (action === 'delete') {
-    await api.deleteProduct(token, params.id!);
-    return redirect('/products');
-  }
-
-  if (action === 'toggle-active') {
-    const isActive = formData.get('isActive') === 'true';
-    await api.updateProduct(token, params.id!, { isActive: !isActive });
-    return redirect(`/products/${params.id}`);
-  }
-
-  return json({});
 }
 
 export default function ProductDetail() {
@@ -63,37 +43,11 @@ export default function ProductDetail() {
             </div>
             <p className="text-gray-600 mt-1">SKU: {product.sku}</p>
           </div>
-          <div className="flex flex-wrap gap-3">
-            <Form method="post">
-              <input type="hidden" name="_action" value="toggle-active" />
-              <input type="hidden" name="isActive" value={product.isActive.toString()} />
-              <Button
-                type="submit"
-                variant="secondary"
-              >
-                {product.isActive ? 'Disable' : 'Enable'}
-              </Button>
-            </Form>
-            <Link to={`/products/${product._id}/edit`}>
-              <Button variant="primary">
-                Edit
-              </Button>
-            </Link>
-            <Form method="post">
-              <input type="hidden" name="_action" value="delete" />
-              <Button
-                type="submit"
-                variant="danger"
-                onClick={(e) => {
-                  if (!confirm('Are you sure you want to delete this product?')) {
-                    e.preventDefault();
-                  }
-                }}
-              >
-                Delete
-              </Button>
-            </Form>
-          </div>
+          <Link to={`/products/${product._id}/edit`}>
+            <span className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+              Edit
+            </span>
+          </Link>
         </div>
         
         {/* Content */}

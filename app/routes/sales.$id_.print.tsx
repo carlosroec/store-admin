@@ -12,17 +12,55 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     throw new Response("Sale ID required", { status: 400 });
   }
 
-  const data = await api.getSale(token, id);
+  const data = await api.getSaleWithLinked(token, id);
+  const sale = data.sale;
+  const linkedSales = data.linkedSales || [];
 
   // Format sale date on server to avoid hydration issues
-  const date = new Date(data.sale.quoteDate);
+  const date = new Date(sale.quoteDate);
   const saleDate = `${date.getDate().toString().padStart(2, "0")}/${(date.getMonth() + 1).toString().padStart(2, "0")}/${date.getFullYear()}`;
 
-  return json({ sale: data.sale, saleDate });
+  // Combine all items from main sale and linked sales
+  const allItems = [...sale.items];
+  for (const linked of linkedSales) {
+    allItems.push(...linked.items);
+  }
+
+  // Calculate combined totals
+  const combinedSubtotal = sale.subtotal + linkedSales.reduce((sum: number, s: any) => sum + s.subtotal, 0);
+  const combinedDiscount = sale.discount + linkedSales.reduce((sum: number, s: any) => sum + s.discount, 0);
+  const combinedShipping = sale.shippingCost + linkedSales.reduce((sum: number, s: any) => sum + s.shippingCost, 0);
+  const combinedTotal = sale.total + linkedSales.reduce((sum: number, s: any) => sum + s.total, 0);
+
+  // Get all sale numbers
+  const allSaleNumbers = [sale.saleNumber, ...linkedSales.map((s: any) => s.saleNumber)];
+
+  return json({
+    sale,
+    linkedSales,
+    saleDate,
+    allItems,
+    allSaleNumbers,
+    combinedSubtotal,
+    combinedDiscount,
+    combinedShipping,
+    combinedTotal,
+    hasLinkedSales: linkedSales.length > 0,
+  });
 }
 
 export default function PrintReceipt() {
-  const { sale, saleDate } = useLoaderData<typeof loader>();
+  const {
+    sale,
+    saleDate,
+    allItems,
+    allSaleNumbers,
+    combinedSubtotal,
+    combinedDiscount,
+    combinedShipping,
+    combinedTotal,
+    hasLinkedSales,
+  } = useLoaderData<typeof loader>();
   const [currentDate, setCurrentDate] = useState<string>("");
 
   // Set date only on client to avoid hydration mismatch
@@ -93,7 +131,15 @@ export default function PrintReceipt() {
           <div className="text-center mb-4">
             <div className="text-base font-bold">Toya.pe</div>
             <div>------------------------</div>
-            <div>{sale.saleNumber}</div>
+            {hasLinkedSales ? (
+              <>
+                {allSaleNumbers.map((num: string, idx: number) => (
+                  <div key={idx}>{num}</div>
+                ))}
+              </>
+            ) : (
+              <div>{sale.saleNumber}</div>
+            )}
             <div>{saleDate}</div>
             <div>------------------------</div>
           </div>
@@ -107,7 +153,7 @@ export default function PrintReceipt() {
 
           {/* Items - Prices already include IGV */}
           <div className="mb-4">
-            {sale.items.map((item: any, index: number) => (
+            {allItems.map((item: any, index: number) => (
               <div key={index} className="mb-2">
                 <div className="truncate">{item.productName}</div>
                 <div className="flex justify-between">
@@ -130,24 +176,24 @@ export default function PrintReceipt() {
           <div className="mt-2">
             <div className="flex justify-between">
               <span>SUBTOTAL:</span>
-              <span>${sale.subtotal.toFixed(2)}</span>
+              <span>${combinedSubtotal.toFixed(2)}</span>
             </div>
-            {sale.discount > 0 && (
+            {combinedDiscount > 0 && (
               <div className="flex justify-between">
                 <span>DESC:</span>
-                <span>-${sale.discount.toFixed(2)}</span>
+                <span>-${combinedDiscount.toFixed(2)}</span>
               </div>
             )}
-            {sale.shippingCost > 0 && (
+            {combinedShipping > 0 && (
               <div className="flex justify-between">
-                <span>ENVIO{sale.shippingMethod ? ` (${sale.shippingMethod})` : ""}:</span>
-                <span>${sale.shippingCost.toFixed(2)}</span>
+                <span>ENVIO:</span>
+                <span>${combinedShipping.toFixed(2)}</span>
               </div>
             )}
             <div>--------------------------------</div>
             <div className="flex justify-between font-bold text-sm">
               <span>TOTAL:</span>
-              <span>${sale.total.toFixed(2)}</span>
+              <span>${combinedTotal.toFixed(2)}</span>
             </div>
           </div>
 

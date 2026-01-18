@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { Form, useSearchParams } from "@remix-run/react";
 import { Input } from "../ui/Input";
 import { Button } from "../ui/Button";
@@ -9,9 +10,10 @@ interface ProductFiltersProps {
 
 export function ProductFilters({ categories, brands }: ProductFiltersProps) {
   const [searchParams] = useSearchParams();
-  
+  const formRef = useRef<HTMLFormElement>(null);
+
   return (
-    <Form method="get" className="bg-white p-4 rounded-lg shadow-md space-y-4">
+    <Form ref={formRef} method="get" className="bg-white p-4 rounded-lg shadow-md space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Search */}
         <Input
@@ -73,9 +75,8 @@ export function ProductFilters({ categories, brands }: ProductFiltersProps) {
           variant="secondary"
           className="flex-1 sm:flex-none"
           onClick={() => {
-            const form = document.querySelector('form');
-            form?.reset();
-            form?.submit();
+            formRef.current?.reset();
+            formRef.current?.submit();
           }}
         >
           Clear

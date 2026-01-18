@@ -1,10 +1,11 @@
 import { json, redirect, type ActionFunctionArgs, type LoaderFunctionArgs } from "@remix-run/node";
-import { useActionData, useLoaderData, Link } from "@remix-run/react";
+import { useActionData, useLoaderData, Link, Form } from "@remix-run/react";
 import { requireUserToken } from "~/lib/auth.server";
 import { api } from "~/lib/api.server";
 import { DashboardLayout } from "~/components/layout/DashboardLayout";
 import { ProductForm } from "~/components/products/ProductForm";
 import { Card } from "~/components/ui/Card";
+import { Button } from "~/components/ui/Button";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const token = await requireUserToken(request);
@@ -16,7 +17,19 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 export async function action({ request, params }: ActionFunctionArgs) {
   const token = await requireUserToken(request);
   const formData = await request.formData();
-  
+  const action = formData.get('_action');
+
+  if (action === 'delete') {
+    await api.deleteProduct(token, params.id!);
+    return redirect('/products');
+  }
+
+  if (action === 'toggle-active') {
+    const isActive = formData.get('isActive') === 'true';
+    await api.updateProduct(token, params.id!, { isActive: !isActive });
+    return redirect(`/products/${params.id}`);
+  }
+
   const images = formData.get('images') as string;
   const imageArray = images
     ? images.split('\n').map(url => url.trim()).filter(Boolean)
@@ -78,7 +91,7 @@ export default function EditProduct() {
         </Link>
         
         <h2 className="text-3xl font-bold text-gray-900 mb-6">
-          Edit Product 1
+          Edit Product
         </h2>
         
         {actionData?.errors?.general && (
@@ -89,6 +102,50 @@ export default function EditProduct() {
         
         <Card>
           <ProductForm product={product} errors={actionData?.errors} />
+        </Card>
+
+        {/* Product Status */}
+        <Card className={`mt-6 ${product.isActive ? 'border-yellow-200 bg-yellow-50' : 'border-green-200 bg-green-50'}`}>
+          <h3 className={`text-lg font-semibold mb-2 ${product.isActive ? 'text-yellow-800' : 'text-green-800'}`}>
+            Product Status
+          </h3>
+          <p className={`text-sm mb-4 ${product.isActive ? 'text-yellow-600' : 'text-green-600'}`}>
+            {product.isActive
+              ? 'This product is currently active and visible in sales searches.'
+              : 'This product is disabled and will not appear in sales searches.'}
+          </p>
+          <Form method="post">
+            <input type="hidden" name="_action" value="toggle-active" />
+            <input type="hidden" name="isActive" value={product.isActive.toString()} />
+            <Button
+              type="submit"
+              variant={product.isActive ? 'secondary' : 'primary'}
+            >
+              {product.isActive ? 'Disable Product' : 'Enable Product'}
+            </Button>
+          </Form>
+        </Card>
+
+        {/* Delete Section */}
+        <Card className="mt-6 border-red-200 bg-red-50">
+          <h3 className="text-lg font-semibold text-red-800 mb-2">Danger Zone</h3>
+          <p className="text-sm text-red-600 mb-4">
+            Once you delete a product, there is no going back. Please be certain.
+          </p>
+          <Form method="post">
+            <input type="hidden" name="_action" value="delete" />
+            <Button
+              type="submit"
+              variant="danger"
+              onClick={(e) => {
+                if (!confirm('Are you sure you want to delete this product?')) {
+                  e.preventDefault();
+                }
+              }}
+            >
+              Delete Product
+            </Button>
+          </Form>
         </Card>
       </div>
     </DashboardLayout>
