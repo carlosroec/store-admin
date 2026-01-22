@@ -109,18 +109,6 @@ export default function ProductDetail() {
                     {product.stock} units
                   </dd>
                 </div>
-                <div className="flex items-center justify-between">
-                  <dt className="text-sm font-medium text-gray-500">On The Way</dt>
-                  <dd className="text-base text-yellow-600 font-semibold">
-                    {product.onTheWay} units
-                  </dd>
-                </div>
-                <div className="flex items-center justify-between">
-                  <dt className="text-sm font-medium text-gray-500">Total Available</dt>
-                  <dd className="text-base font-bold text-gray-900">
-                    {product.stock + product.onTheWay} units
-                  </dd>
-                </div>
               </dl>
             </Card>
           </div>
@@ -134,7 +122,46 @@ export default function ProductDetail() {
           </Card>
         )}
 
-        {/* <Outlet /> */}
+        {/* Compatible Refills */}
+        {product.refills && product.refills.length > 0 && (
+          <Card className="mt-6">
+            <h3 className="text-lg font-semibold mb-4">Compatible Refills</h3>
+            <div className="space-y-3">
+              {product.refills.map((refill: any) => (
+                <Link
+                  key={refill._id}
+                  to={`/products/${refill._id}`}
+                  className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  {refill.images && refill.images.length > 0 ? (
+                    <OptimizedImage
+                      src={refill.images[0]}
+                      alt={refill.name}
+                      width={60}
+                      height={60}
+                      crop="fill"
+                      className="w-12 h-12 object-cover rounded"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center">
+                      <span className="text-xl">📦</span>
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-gray-900 truncate">{refill.name}</p>
+                    <p className="text-sm text-gray-500">SKU: {refill.sku}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold text-gray-900">${refill.price.toFixed(2)}</p>
+                    {!refill.isActive && (
+                      <span className="text-xs text-red-600">Disabled</span>
+                    )}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </Card>
+        )}
       </div>
     </DashboardLayout>
   );

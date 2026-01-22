@@ -23,11 +23,12 @@ export interface Product {
     brand: string;
     category: string;
     price: number;
+    offerPrice?: number;
     description?: string;
     stock: number;
-    onTheWay: number;
     images: string[];
     isActive: boolean;
+    isTopSales?: boolean;
     createdAt: string;
     updatedAt: string;
 }
@@ -39,9 +40,10 @@ export interface CreateProductDTO {
     category: string;
     price: number;
     description?: string;
-    stock: number;
-    onTheWay?: number;
+    stock?: number;
     images?: string[];
+    isActive?: boolean;
+    isTopSales?: boolean;
 }
 
 export interface SaleItem {
@@ -128,6 +130,46 @@ export interface CloudinarySignature {
     apiKey: string;
     cloudName: string;
     folder: string;
+}
+
+export interface Category {
+    _id: string;
+    name: string;
+    slug: string;
+    description?: string;
+    image?: string;
+    isActive: boolean;
+    order: number;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface CreateCategoryDTO {
+    name: string;
+    slug?: string;
+    description?: string;
+    image?: string;
+    order?: number;
+}
+
+export interface Brand {
+    _id: string;
+    name: string;
+    slug: string;
+    description?: string;
+    logo?: string;
+    isActive: boolean;
+    order: number;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface CreateBrandDTO {
+    name: string;
+    slug?: string;
+    description?: string;
+    logo?: string;
+    order?: number;
 }
 
 export class ApiClient {
@@ -339,6 +381,42 @@ export class ApiClient {
 
         if (!response.ok) {
             throw new Error('Failed to fetch brands');
+        }
+
+        return response.json();
+    }
+
+    // Add refill to product
+    async addProductRefill(token: string, productId: string, refillProductId: string) {
+        const response = await this.fetch(`${this.baseUrl}/api/products/${productId}/refills`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ refillProductId }),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to add refill');
+        }
+
+        return response.json();
+    }
+
+    // Remove refill from product
+    async removeProductRefill(token: string, productId: string, refillProductId: string) {
+        const response = await this.fetch(`${this.baseUrl}/api/products/${productId}/refills/${refillProductId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+            },
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to remove refill');
         }
 
         return response.json();
@@ -661,6 +739,180 @@ export class ApiClient {
 
         if (!response.ok) {
             throw new Error('Failed to fetch statistics');
+        }
+
+        return response.json();
+    }
+
+    // ==================== CATEGORIES ====================
+
+    // Get all categories
+    async getCategoriesAdmin(token: string, includeInactive: boolean = false) {
+        const params = includeInactive ? '?includeInactive=true' : '';
+        const response = await this.fetch(`${this.baseUrl}/api/categories${params}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch categories');
+        }
+
+        return response.json();
+    }
+
+    // Get category by ID
+    async getCategory(token: string, id: string) {
+        const response = await this.fetch(`${this.baseUrl}/api/categories/${id}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error('Category not found');
+        }
+
+        return response.json();
+    }
+
+    // Create category
+    async createCategory(token: string, data: CreateCategoryDTO) {
+        const response = await this.fetch(`${this.baseUrl}/api/categories`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to create category');
+        }
+
+        return response.json();
+    }
+
+    // Update category
+    async updateCategory(token: string, id: string, data: Partial<CreateCategoryDTO & { isActive?: boolean }>) {
+        const response = await this.fetch(`${this.baseUrl}/api/categories/${id}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to update category');
+        }
+
+        return response.json();
+    }
+
+    // Delete category
+    async deleteCategory(token: string, id: string) {
+        const response = await this.fetch(`${this.baseUrl}/api/categories/${id}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to delete category');
+        }
+
+        return response.json();
+    }
+
+    // ==================== BRANDS ====================
+
+    // Get all brands
+    async getBrandsAdmin(token: string, includeInactive: boolean = false) {
+        const params = includeInactive ? '?includeInactive=true' : '';
+        const response = await this.fetch(`${this.baseUrl}/api/brands${params}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch brands');
+        }
+
+        return response.json();
+    }
+
+    // Get brand by ID
+    async getBrand(token: string, id: string) {
+        const response = await this.fetch(`${this.baseUrl}/api/brands/${id}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error('Brand not found');
+        }
+
+        return response.json();
+    }
+
+    // Create brand
+    async createBrand(token: string, data: CreateBrandDTO) {
+        const response = await this.fetch(`${this.baseUrl}/api/brands`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to create brand');
+        }
+
+        return response.json();
+    }
+
+    // Update brand
+    async updateBrand(token: string, id: string, data: Partial<CreateBrandDTO & { isActive?: boolean }>) {
+        const response = await this.fetch(`${this.baseUrl}/api/brands/${id}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to update brand');
+        }
+
+        return response.json();
+    }
+
+    // Delete brand
+    async deleteBrand(token: string, id: string) {
+        const response = await this.fetch(`${this.baseUrl}/api/brands/${id}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to delete brand');
         }
 
         return response.json();

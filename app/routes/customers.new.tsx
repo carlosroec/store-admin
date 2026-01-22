@@ -29,6 +29,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
   // Address fields
   const street = formData.get("street") as string;
+  const city = formData.get("city") as string;
   const district = formData.get("district") as string;
   const province = formData.get("province") as string;
   const department = formData.get("department") as string;
@@ -68,6 +69,7 @@ export async function action({ request }: ActionFunctionArgs) {
   if (street?.trim()) {
     customerData.address = {
       street: street.trim(),
+      city: city?.trim() || undefined,
       district: district?.trim() || undefined,
       province: province?.trim() || undefined,
       department: department?.trim() || undefined,
@@ -229,6 +231,13 @@ export default function NewCustomer() {
                 name="street"
                 label="Street Address"
                 placeholder="Street name and number"
+              />
+
+              <Input
+                type="text"
+                name="city"
+                label="City"
+                placeholder="City"
               />
 
               <div className="grid grid-cols-2 gap-4">

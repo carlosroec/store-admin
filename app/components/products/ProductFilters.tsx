@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { Form, useSearchParams } from "@remix-run/react";
+import { Form, useSearchParams, useNavigate } from "@remix-run/react";
 import { Input } from "../ui/Input";
 import { Button } from "../ui/Button";
 
@@ -11,6 +11,7 @@ interface ProductFiltersProps {
 export function ProductFilters({ categories, brands }: ProductFiltersProps) {
   const [searchParams] = useSearchParams();
   const formRef = useRef<HTMLFormElement>(null);
+  const navigate = useNavigate();
 
   return (
     <Form ref={formRef} method="get" className="bg-white p-4 rounded-lg shadow-md space-y-4">
@@ -75,8 +76,7 @@ export function ProductFilters({ categories, brands }: ProductFiltersProps) {
           variant="secondary"
           className="flex-1 sm:flex-none"
           onClick={() => {
-            formRef.current?.reset();
-            formRef.current?.submit();
+            navigate('/products');
           }}
         >
           Clear

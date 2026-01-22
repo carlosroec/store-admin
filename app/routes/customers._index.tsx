@@ -151,10 +151,14 @@ export default function CustomersIndex() {
                       <span className="truncate">{customer.email}</span>
                     </div>
                   )}
-                  {customer.documentType && customer.documentNumber && (
+                  {(customer.address?.district || customer.address?.city) && (
                     <div className="flex items-center gap-2">
-                      <span>🪪</span>
-                      <span>{customer.documentType}: {customer.documentNumber}</span>
+                      <span>📍</span>
+                      <span>
+                        {[customer.address?.district, customer.address?.city]
+                          .filter(Boolean)
+                          .join(", ")}
+                      </span>
                     </div>
                   )}
                   {customer.socialMedia?.username && (
@@ -195,7 +199,7 @@ export default function CustomersIndex() {
                     Name
                   </th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">
-                    Document
+                    Location
                   </th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">
                     Contact
@@ -223,9 +227,13 @@ export default function CustomersIndex() {
                       </Link>
                     </td>
                     <td className="py-3 px-4 text-gray-600">
-                      {customer.documentType && customer.documentNumber
-                        ? `${customer.documentType}: ${customer.documentNumber}`
-                        : "-"}
+                      <div>
+                        {customer.address?.district && <div>{customer.address.district}</div>}
+                        {customer.address?.city && (
+                          <div className="text-sm text-gray-500">{customer.address.city}</div>
+                        )}
+                        {!customer.address?.district && !customer.address?.city && "-"}
+                      </div>
                     </td>
                     <td className="py-3 px-4 text-gray-600">
                       <div>

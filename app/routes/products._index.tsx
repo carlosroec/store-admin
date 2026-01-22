@@ -1,5 +1,5 @@
 import { json, type LoaderFunctionArgs } from "@remix-run/node";
-import { useLoaderData, Link } from "@remix-run/react";
+import { useLoaderData, Link, useSearchParams } from "@remix-run/react";
 import { requireUserToken } from "~/lib/auth.server";
 import { api } from "~/lib/api.server";
 import { DashboardLayout } from "~/components/layout/DashboardLayout";
@@ -37,7 +37,14 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
 export default function ProductsIndex() {
   const { products, pagination, categories, brands } = useLoaderData<typeof loader>();
-  
+  const [searchParams] = useSearchParams();
+
+  const buildPaginationUrl = (page: number) => {
+    const params = new URLSearchParams(searchParams);
+    params.set("page", page.toString());
+    return `?${params.toString()}`;
+  };
+
   return (
     <DashboardLayout>
       {/* Header */}
@@ -84,7 +91,7 @@ export default function ProductsIndex() {
               {Array.from({ length: pagination.pages }, (_, i) => i + 1).map((page) => (
                 <Link
                   key={page}
-                  to={`?page=${page}`}
+                  to={buildPaginationUrl(page)}
                   className={`
                     px-3 py-2 sm:px-4 rounded-lg font-medium transition-colors text-sm
                     ${page === pagination.page

@@ -1,5 +1,5 @@
 import { json, redirect, type ActionFunctionArgs, type LoaderFunctionArgs } from "@remix-run/node";
-import { useActionData } from "@remix-run/react";
+import { useActionData, useLoaderData } from "@remix-run/react";
 import { requireUserToken } from "~/lib/auth.server";
 import { api } from "~/lib/api.server";
 import { DashboardLayout } from "~/components/layout/DashboardLayout";
@@ -7,8 +7,18 @@ import { ProductForm } from "~/components/products/ProductForm";
 import { Card } from "~/components/ui/Card";
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  await requireUserToken(request);
-  return json({});
+  const token = await requireUserToken(request);
+
+  // Fetch active categories and brands for the form
+  const [categoriesData, brandsData] = await Promise.all([
+    api.getCategoriesAdmin(token, false),
+    api.getBrandsAdmin(token, false),
+  ]);
+
+  return json({
+    categories: categoriesData.categories,
+    brands: brandsData.brands,
+  });
 }
 
 export async function action({ request }: ActionFunctionArgs) {
@@ -26,10 +36,11 @@ export async function action({ request }: ActionFunctionArgs) {
     brand: formData.get('brand') as string,
     category: formData.get('category') as string,
     price: parseFloat(formData.get('price') as string),
+    offerPrice: parseFloat(formData.get('offerPrice') as string) || 0,
     description: formData.get('description') as string || undefined,
     stock: parseInt(formData.get('stock') as string),
-    onTheWay: parseInt(formData.get('onTheWay') as string) || 0,
     images: imageArray,
+    isTopSales: formData.get('isTopSales') === 'on',
   };
   
   // Validation
@@ -62,23 +73,28 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 export default function NewProduct() {
+  const { categories, brands } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
-  
+
   return (
     <DashboardLayout>
       <div className="max-w-4xl mx-auto">
         <h2 className="text-3xl font-bold text-gray-900 mb-6">
           Create New Product
         </h2>
-        
+
         {actionData?.errors?.general && (
           <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
             {actionData.errors.general}
           </div>
         )}
-        
+
         <Card>
-          <ProductForm errors={actionData?.errors} />
+          <ProductForm
+            errors={actionData?.errors}
+            categories={categories}
+            brands={brands}
+          />
         </Card>
       </div>
     </DashboardLayout>

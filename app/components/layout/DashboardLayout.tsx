@@ -13,6 +13,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const navigation = [
     { name: 'Home', href: '/home', icon: '📊' },
     { name: 'Products', href: '/products', icon: '📦' },
+    { name: 'Categories', href: '/categories', icon: '📁' },
+    { name: 'Brands', href: '/brands', icon: '🏢' },
     { name: 'Customers', href: '/customers', icon: '👥' },
     { name: 'Sales', href: '/sales', icon: '💰' },
     { name: 'Reports', href: '/reports', icon: '📈' },

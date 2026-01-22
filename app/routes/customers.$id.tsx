@@ -178,6 +178,12 @@ export default function CustomerDetail() {
                 <p className="text-sm text-gray-600">Street</p>
                 <p className="font-medium">{customer.address.street}</p>
               </div>
+              {customer.address.city && (
+                <div>
+                  <p className="text-sm text-gray-600">City</p>
+                  <p className="font-medium">{customer.address.city}</p>
+                </div>
+              )}
               {customer.address.district && (
                 <div>
                   <p className="text-sm text-gray-600">District</p>
