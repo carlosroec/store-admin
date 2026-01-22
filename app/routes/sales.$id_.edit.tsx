@@ -49,6 +49,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
   const discount = parseFloat(formData.get("discount") as string) || 0;
   const shippingCost = parseFloat(formData.get("shippingCost") as string) || 0;
   const shippingMethod = (formData.get("shippingMethod") as string) || undefined;
+  const voucherType = (formData.get("voucherType") as string) || undefined;
   const quoteValidDays = parseInt(formData.get("quoteValidDays") as string) || 7;
   const notes = (formData.get("notes") as string) || undefined;
   const internalNotes = (formData.get("internalNotes") as string) || undefined;
@@ -74,6 +75,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
       discount,
       shippingCost,
       shippingMethod,
+      voucherType,
       quoteValidDays,
       notes,
       internalNotes,
@@ -130,6 +132,7 @@ export default function EditSale() {
   const [generalDiscount, setGeneralDiscount] = useState(sale.discount || 0);
   const [shippingCost, setShippingCost] = useState(sale.shippingCost || 0);
   const [shippingMethod, setShippingMethod] = useState(sale.shippingMethod || "");
+  const [voucherType, setVoucherType] = useState(sale.voucherType || "");
   const [quoteValidDays, setQuoteValidDays] = useState(7);
   const [notes, setNotes] = useState(sale.notes || "");
   const [internalNotes, setInternalNotes] = useState(sale.internalNotes || "");
@@ -190,12 +193,6 @@ export default function EditSale() {
           </Link>
           <h2 className="text-3xl font-bold text-gray-900">Edit Quote: {sale.saleNumber}</h2>
         </div>
-
-        {actionData?.errors?.general && (
-          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-            {actionData.errors.general}
-          </div>
-        )}
 
         <Form method="post" className="space-y-6">
           {/* Customer Selection */}
@@ -276,7 +273,7 @@ export default function EditSale() {
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
               <Input
                 type="number"
                 name="shippingCost"
@@ -304,6 +301,23 @@ export default function EditSale() {
                   <option value="olva">Olva Courier</option>
                   <option value="shalom">Shalom</option>
                   <option value="other">Other</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Voucher Type
+                </label>
+                <select
+                  name="voucherType"
+                  value={voucherType}
+                  onChange={(e) => setVoucherType(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value="">Select type...</option>
+                  <option value="sales_note">Sales Note</option>
+                  <option value="receipt">Receipt</option>
+                  <option value="invoice">Invoice</option>
                 </select>
               </div>
             </div>
@@ -336,6 +350,13 @@ export default function EditSale() {
               />
             </div>
           </Card>
+
+          {/* Error message - near the buttons for mobile visibility */}
+          {actionData?.errors?.general && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+              {actionData.errors.general}
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex items-center justify-end space-x-4">

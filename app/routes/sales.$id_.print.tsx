@@ -1,8 +1,9 @@
 import { json, type LoaderFunctionArgs } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { requireUserToken } from "~/lib/auth.server";
 import { api } from "~/lib/api.server";
+import html2canvas from "html2canvas";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const token = await requireUserToken(request);
@@ -62,6 +63,9 @@ export default function PrintReceipt() {
     hasLinkedSales,
   } = useLoaderData<typeof loader>();
   const [currentDate, setCurrentDate] = useState<string>("");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  const receiptRef = useRef<HTMLDivElement>(null);
 
   // Set date only on client to avoid hydration mismatch
   useEffect(() => {
@@ -76,6 +80,28 @@ export default function PrintReceipt() {
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleGenerateImage = async () => {
+    if (!receiptRef.current) return;
+
+    setIsGenerating(true);
+    try {
+      const canvas = await html2canvas(receiptRef.current, {
+        backgroundColor: "#ffffff",
+        scale: 2,
+      });
+      const dataUrl = canvas.toDataURL("image/png");
+      setGeneratedImage(dataUrl);
+    } catch (error) {
+      console.error("Error generating image:", error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleCloseModal = () => {
+    setGeneratedImage(null);
   };
 
   return (
@@ -105,8 +131,15 @@ export default function PrintReceipt() {
         `}
       </style>
 
-      {/* Print Button - Only visible on screen */}
+      {/* Action Buttons - Only visible on screen */}
       <div className="no-print fixed top-4 right-4 flex gap-2">
+        <button
+          onClick={handleGenerateImage}
+          disabled={isGenerating}
+          className="bg-green-600 text-white px-6 py-2 font-mono text-sm hover:bg-green-700 disabled:opacity-50"
+        >
+          {isGenerating ? "..." : "IMAGE"}
+        </button>
         <button
           onClick={handlePrint}
           className="bg-black text-white px-6 py-2 font-mono text-sm hover:bg-gray-800"
@@ -123,6 +156,7 @@ export default function PrintReceipt() {
 
       {/* Receipt */}
       <div
+        ref={receiptRef}
         className="receipt mx-auto bg-white mt-20"
         style={{ width: "80mm", fontFamily: "monospace" }}
       >
@@ -155,12 +189,12 @@ export default function PrintReceipt() {
           <div className="mb-4">
             {allItems.map((item: any, index: number) => (
               <div key={index} className="mb-2">
-                <div className="truncate">{item.productName}</div>
+                <div style={{ wordBreak: "break-word" }}>{item.productName}</div>
                 <div className="flex justify-between">
                   <span>
-                    {item.quantity} x ${item.unitPrice.toFixed(2)}
+                    {item.quantity} x S/{item.unitPrice.toFixed(2)}
                   </span>
-                  <span>${item.subtotal.toFixed(2)}</span>
+                  <span>S/{item.subtotal.toFixed(2)}</span>
                 </div>
                 {item.discount > 0 && (
                   <div className="text-right">-{item.discount}%</div>
@@ -176,37 +210,65 @@ export default function PrintReceipt() {
           <div className="mt-2">
             <div className="flex justify-between">
               <span>SUBTOTAL:</span>
-              <span>${combinedSubtotal.toFixed(2)}</span>
+              <span>S/{combinedSubtotal.toFixed(2)}</span>
             </div>
             {combinedDiscount > 0 && (
               <div className="flex justify-between">
                 <span>DESC:</span>
-                <span>-${combinedDiscount.toFixed(2)}</span>
+                <span>-S/{combinedDiscount.toFixed(2)}</span>
               </div>
             )}
             {combinedShipping > 0 && (
               <div className="flex justify-between">
                 <span>ENVIO:</span>
-                <span>${combinedShipping.toFixed(2)}</span>
+                <span>S/{combinedShipping.toFixed(2)}</span>
               </div>
             )}
             <div>--------------------------------</div>
             <div className="flex justify-between font-bold text-sm">
               <span>TOTAL:</span>
-              <span>${combinedTotal.toFixed(2)}</span>
+              <span>S/{combinedTotal.toFixed(2)}</span>
             </div>
           </div>
 
           {/* Footer */}
           <div className="text-center mt-6">
             <div>--------------------------------</div>
-            <div className="mt-2">Gracias por su compra!</div>
             {currentDate && (
-              <div className="mt-4 text-[10px]">{currentDate}</div>
+              <div className="mt-2 text-[10px]">{currentDate}</div>
             )}
           </div>
         </div>
       </div>
+
+      {/* Image Preview Modal */}
+      {generatedImage && (
+        <div
+          className="no-print fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
+          onClick={handleCloseModal}
+        >
+          <div
+            className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4">
+              <img
+                src={generatedImage}
+                alt="Receipt"
+                className="w-full"
+              />
+            </div>
+            <div className="p-4 border-t">
+              <button
+                onClick={handleCloseModal}
+                className="w-full bg-gray-200 text-black px-4 py-3 font-mono text-sm hover:bg-gray-300 rounded"
+              >
+                CLOSE
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -118,7 +118,7 @@ export default function SaleDetail() {
             </Link>
             {canEdit && (
               <Link to={`/sales/${sale._id}/edit`}>
-                <Button variant="secondary">Edit Quote</Button>
+                <Button variant="secondary">Edit</Button>
               </Link>
             )}
             <span
@@ -281,6 +281,15 @@ export default function SaleDetail() {
               <div>
                 <p className="text-sm text-gray-600">Payment Method</p>
                 <p className="font-medium capitalize">{sale.paymentMethod}</p>
+              </div>
+            )}
+            {sale.voucherType && (
+              <div>
+                <p className="text-sm text-gray-600">Voucher Type</p>
+                <p className="font-medium capitalize">
+                  {sale.voucherType === "sales_note" ? "Sales Note" :
+                   sale.voucherType.charAt(0).toUpperCase() + sale.voucherType.slice(1)}
+                </p>
               </div>
             )}
           </div>

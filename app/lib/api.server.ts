@@ -105,6 +105,7 @@ export interface CreateSaleDTO {
     shippingCost?: number;
     shippingMethod?: string;
     paymentMethod?: string;
+    voucherType?: string;
     quoteValidDays?: number;
     notes?: string;
     internalNotes?: string;

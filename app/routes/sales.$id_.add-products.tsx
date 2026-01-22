@@ -146,12 +146,6 @@ export default function AddProducts() {
           </p>
         </div>
 
-        {actionData?.errors?.general && (
-          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-            {actionData.errors.general}
-          </div>
-        )}
-
         {/* Parent Sale Info */}
         <Card className="mb-6 bg-blue-50 border-blue-200">
           <h3 className="text-lg font-semibold mb-3">Original Order</h3>
@@ -283,6 +277,13 @@ export default function AddProducts() {
               />
             </div>
           </Card>
+
+          {/* Error message - near the buttons for mobile visibility */}
+          {actionData?.errors?.general && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+              {actionData.errors.general}
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex items-center justify-end space-x-4">
