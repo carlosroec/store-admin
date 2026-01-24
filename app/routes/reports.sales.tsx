@@ -33,7 +33,7 @@ export default function SalesReport() {
   const [searchParams] = useSearchParams();
 
   const formatCurrency = (amount: number) => {
-    return `$${amount.toFixed(2)}`;
+    return `S/${amount.toFixed(2)}`;
   };
 
   const formatDate = (dateStr: string) => {

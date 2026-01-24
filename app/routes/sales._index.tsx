@@ -176,10 +176,10 @@ export default function SalesIndex() {
                 <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-4 pt-4 sm:pt-0 border-t sm:border-t-0 border-gray-100">
                   <div className="sm:text-right">
                     <p className="text-xl sm:text-2xl font-bold text-gray-900">
-                      ${sale.total.toFixed(2)}
+                      S/{sale.total.toFixed(2)}
                     </p>
                     <p className="text-xs sm:text-sm text-gray-500">
-                      Subtotal: ${sale.subtotal.toFixed(2)}
+                      Subtotal: S/{sale.subtotal.toFixed(2)}
                     </p>
                   </div>
 

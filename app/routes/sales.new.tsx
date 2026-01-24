@@ -45,7 +45,7 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 
   try {
-    await api.createSale(token, {
+    const result = await api.createSale(token, {
       customerId,
       items,
       discount,
@@ -57,7 +57,7 @@ export async function action({ request }: ActionFunctionArgs) {
       internalNotes,
     });
 
-    return redirect("/sales");
+    return redirect(`/sales/${result.sale._id}`);
   } catch (error) {
     return json(
       { errors: { general: error instanceof Error ? error.message : "Failed to create quote" } },

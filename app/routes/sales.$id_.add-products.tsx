@@ -164,7 +164,7 @@ export default function AddProducts() {
             </div>
             <div>
               <p className="text-sm text-gray-600">Original Total</p>
-              <p className="font-medium">${parentSale.total.toFixed(2)}</p>
+              <p className="font-medium">S/{parentSale.total.toFixed(2)}</p>
             </div>
           </div>
         </Card>

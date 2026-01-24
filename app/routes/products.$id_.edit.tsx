@@ -189,7 +189,7 @@ export default function EditProduct() {
                   )}
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-gray-900 truncate">{result.name}</p>
-                    <p className="text-sm text-gray-500">{result.sku} - ${result.price.toFixed(2)}</p>
+                    <p className="text-sm text-gray-500">{result.sku} - S/{result.price.toFixed(2)}</p>
                   </div>
                   <Form method="post">
                     <input type="hidden" name="_action" value="add-refill" />
@@ -230,7 +230,7 @@ export default function EditProduct() {
                     )}
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-gray-900 truncate">{refill.name}</p>
-                      <p className="text-sm text-gray-500">{refill.sku} - ${refill.price.toFixed(2)}</p>
+                      <p className="text-sm text-gray-500">{refill.sku} - S/{refill.price.toFixed(2)}</p>
                     </div>
                     <Form method="post">
                       <input type="hidden" name="_action" value="remove-refill" />

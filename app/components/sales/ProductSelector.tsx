@@ -88,7 +88,7 @@ export function ProductSelector({
                     <div className="text-sm text-gray-600">SKU: {product.sku}</div>
                   </div>
                   <div className="text-right">
-                    <div className="font-semibold text-gray-900">${product.price.toFixed(2)}</div>
+                    <div className="font-semibold text-gray-900">S/{product.price.toFixed(2)}</div>
                     <div className="text-sm text-gray-600">Stock: {product.stock}</div>
                   </div>
                 </div>
@@ -103,7 +103,7 @@ export function ProductSelector({
           <div className="md:col-span-2">
             <p className="text-sm text-gray-600">Selected Product</p>
             <p className="font-semibold">{selectedProduct.name}</p>
-            <p className="text-sm text-gray-600">Price: ${selectedProduct.price.toFixed(2)}</p>
+            <p className="text-sm text-gray-600">Price: S/{selectedProduct.price.toFixed(2)}</p>
           </div>
           
           <Input
@@ -129,7 +129,7 @@ export function ProductSelector({
               <div>
                 <p className="text-sm text-gray-600">Subtotal</p>
                 <p className="text-xl font-bold">
-                  ${(selectedProduct.price * quantity * (1 - discount / 100)).toFixed(2)}
+                  S/{(selectedProduct.price * quantity * (1 - discount / 100)).toFixed(2)}
                 </p>
               </div>
               <div className="flex space-x-2">

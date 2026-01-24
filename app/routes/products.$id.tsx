@@ -92,7 +92,7 @@ export default function ProductDetail() {
                 <div>
                   <dt className="text-sm font-medium text-gray-500">Price</dt>
                   <dd className="text-2xl font-bold text-gray-900">
-                    ${product.price.toFixed(2)}
+                    S/{product.price.toFixed(2)}
                   </dd>
                 </div>
               </dl>
@@ -152,7 +152,7 @@ export default function ProductDetail() {
                     <p className="text-sm text-gray-500">SKU: {refill.sku}</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-semibold text-gray-900">${refill.price.toFixed(2)}</p>
+                    <p className="font-semibold text-gray-900">S/{refill.price.toFixed(2)}</p>
                     {!refill.isActive && (
                       <span className="text-xs text-red-600">Disabled</span>
                     )}

@@ -12,6 +12,13 @@ export const links: LinksFunction = () => [
   { rel: "stylesheet", href: styles },
 ];
 
+export const meta = () => {
+  return [
+    { title: "My Store | Toya.pe" },
+    { name: "description", content: "Sistema de gestión de ventas" },
+  ];
+};
+
 export default function App() {
   return (
     <html lang="en">

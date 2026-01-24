@@ -56,7 +56,7 @@ export function SaleItemsList({ items, onRemove, onUpdateQuantity, generalDiscou
                   <div className="text-sm text-gray-600">SKU: {item.sku}</div>
                 </td>
                 <td className="px-4 py-3 text-right text-gray-900">
-                  ${item.unitPrice.toFixed(2)}
+                  S/{item.unitPrice.toFixed(2)}
                 </td>
                 <td className="px-4 py-3 text-center">
                   <input
@@ -71,7 +71,7 @@ export function SaleItemsList({ items, onRemove, onUpdateQuantity, generalDiscou
                   {item.discount}%
                 </td>
                 <td className="px-4 py-3 text-right font-semibold text-gray-900">
-                  ${item.subtotal.toFixed(2)}
+                  S/{item.subtotal.toFixed(2)}
                 </td>
                 <td className="px-4 py-3 text-right">
                   <button
@@ -92,24 +92,24 @@ export function SaleItemsList({ items, onRemove, onUpdateQuantity, generalDiscou
       <div className="bg-gray-50 rounded-lg p-6 space-y-3">
         <div className="flex items-center justify-between text-gray-700">
           <span>Subtotal</span>
-          <span className="font-semibold">${subtotal.toFixed(2)}</span>
+          <span className="font-semibold">S/{subtotal.toFixed(2)}</span>
         </div>
-        
+
         {generalDiscount > 0 && (
           <div className="flex items-center justify-between text-gray-700">
             <span>Discount</span>
-            <span className="font-semibold text-red-600">-${generalDiscount.toFixed(2)}</span>
+            <span className="font-semibold text-red-600">-S/{generalDiscount.toFixed(2)}</span>
           </div>
         )}
-        
+
         <div className="flex items-center justify-between text-gray-500 text-sm">
           <span>IGV (included)</span>
-          <span>${tax.toFixed(2)}</span>
+          <span>S/{tax.toFixed(2)}</span>
         </div>
-        
+
         <div className="pt-3 border-t border-gray-300 flex items-center justify-between">
           <span className="text-xl font-bold text-gray-900">Total</span>
-          <span className="text-2xl font-bold text-primary-600">${total.toFixed(2)}</span>
+          <span className="text-2xl font-bold text-primary-600">S/{total.toFixed(2)}</span>
         </div>
       </div>
     </div>

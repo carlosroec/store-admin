@@ -209,10 +209,10 @@ export default function SaleDetail() {
                       <p className="font-medium">{item.productName}</p>
                       <p className="text-sm text-gray-500">SKU: {item.sku}</p>
                     </td>
-                    <td className="text-right py-3 px-2">${item.unitPrice.toFixed(2)}</td>
+                    <td className="text-right py-3 px-2">S/{item.unitPrice.toFixed(2)}</td>
                     <td className="text-right py-3 px-2">{item.quantity}</td>
                     <td className="text-right py-3 px-2">{item.discount}%</td>
-                    <td className="text-right py-3 px-2 font-medium">${item.subtotal.toFixed(2)}</td>
+                    <td className="text-right py-3 px-2 font-medium">S/{item.subtotal.toFixed(2)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -225,12 +225,12 @@ export default function SaleDetail() {
           <div className="space-y-2">
             <div className="flex justify-between text-gray-600">
               <span>Subtotal</span>
-              <span>${sale.subtotal.toFixed(2)}</span>
+              <span>S/{sale.subtotal.toFixed(2)}</span>
             </div>
             {sale.discount > 0 && (
               <div className="flex justify-between text-gray-600">
                 <span>Discount</span>
-                <span>-${sale.discount.toFixed(2)}</span>
+                <span>-S/{sale.discount.toFixed(2)}</span>
               </div>
             )}
             {sale.shippingCost > 0 && (
@@ -245,16 +245,16 @@ export default function SaleDetail() {
                     </span>
                   )}
                 </span>
-                <span>${sale.shippingCost.toFixed(2)}</span>
+                <span>S/{sale.shippingCost.toFixed(2)}</span>
               </div>
             )}
             <div className="flex justify-between text-gray-500 text-sm">
               <span>IGV (included)</span>
-              <span>${sale.tax.toFixed(2)}</span>
+              <span>S/{sale.tax.toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-xl font-bold border-t pt-2">
               <span>Total</span>
-              <span>${sale.total.toFixed(2)}</span>
+              <span>S/{sale.total.toFixed(2)}</span>
             </div>
           </div>
         </Card>
@@ -342,7 +342,7 @@ export default function SaleDetail() {
                     <Link to={`/sales/${linked._id}`} className="font-medium text-primary-600 hover:underline">
                       {linked.saleNumber}
                     </Link>
-                    <p className="text-sm text-gray-600">{linked.items.length} item(s) - ${linked.total.toFixed(2)}</p>
+                    <p className="text-sm text-gray-600">{linked.items.length} item(s) - S/{linked.total.toFixed(2)}</p>
                   </div>
                   <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${statusColors[linked.status]}`}>
                     {linked.status.toUpperCase()}
