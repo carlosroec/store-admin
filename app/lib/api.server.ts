@@ -173,6 +173,63 @@ export interface CreateBrandDTO {
     order?: number;
 }
 
+// ==================== EXPENSES ====================
+
+export type ExpenseType = 'operational' | 'inventory' | 'service' | 'other';
+export type ExpenseDocumentType = 'receipt' | 'invoice' | 'none';
+export type ExpensePaymentMethod = 'cash' | 'card' | 'transfer' | 'yape' | 'plin';
+
+export interface Expense {
+    _id: string;
+    expenseNumber: string;
+    type: ExpenseType;
+    category: string;
+    description: string;
+    amount: number;
+    quantity?: number;
+    unitCost?: number;
+    supplier?: string;
+    documentType?: ExpenseDocumentType;
+    documentNumber?: string;
+    paymentMethod: ExpensePaymentMethod;
+    expenseDate: string;
+    notes?: string;
+    productId?: string;
+    isActive: boolean;
+    createdBy: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface CreateExpenseDTO {
+    type: ExpenseType;
+    category: string;
+    description: string;
+    amount: number;
+    quantity?: number;
+    unitCost?: number;
+    supplier?: string;
+    documentType?: ExpenseDocumentType;
+    documentNumber?: string;
+    paymentMethod: ExpensePaymentMethod;
+    expenseDate: string;
+    notes?: string;
+    productId?: string;
+}
+
+export interface ExpenseFilters {
+    type?: ExpenseType;
+    category?: string;
+    startDate?: string;
+    endDate?: string;
+    search?: string;
+    paymentMethod?: ExpensePaymentMethod;
+    supplier?: string;
+    page?: number;
+    limit?: number;
+    includeInactive?: boolean;
+}
+
 export class ApiClient {
     private baseUrl: string;
 
@@ -914,6 +971,155 @@ export class ApiClient {
 
         if (!response.ok) {
             throw new Error('Failed to delete brand');
+        }
+
+        return response.json();
+    }
+
+    // ==================== EXPENSES ====================
+
+    // Get all expenses
+    async getExpenses(token: string, filters?: ExpenseFilters) {
+        const params = new URLSearchParams();
+
+        if (filters) {
+            Object.entries(filters).forEach(([key, value]) => {
+                if (value !== undefined && value !== null && value !== '') {
+                    params.append(key, value.toString());
+                }
+            });
+        }
+
+        const url = `${this.baseUrl}/api/expenses${params.toString() ? `?${params}` : ''}`;
+
+        const response = await this.fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch expenses');
+        }
+
+        return response.json();
+    }
+
+    // Get expense by ID
+    async getExpense(token: string, id: string) {
+        const response = await this.fetch(`${this.baseUrl}/api/expenses/${id}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error('Expense not found');
+        }
+
+        return response.json();
+    }
+
+    // Create expense
+    async createExpense(token: string, data: CreateExpenseDTO) {
+        const response = await this.fetch(`${this.baseUrl}/api/expenses`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to create expense');
+        }
+
+        return response.json();
+    }
+
+    // Update expense
+    async updateExpense(token: string, id: string, data: Partial<CreateExpenseDTO & { isActive?: boolean }>) {
+        const response = await this.fetch(`${this.baseUrl}/api/expenses/${id}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to update expense');
+        }
+
+        return response.json();
+    }
+
+    // Delete expense
+    async deleteExpense(token: string, id: string) {
+        const response = await this.fetch(`${this.baseUrl}/api/expenses/${id}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to delete expense');
+        }
+
+        return response.json();
+    }
+
+    // Get expense categories (for autocomplete)
+    async getExpenseCategories(token: string) {
+        const response = await this.fetch(`${this.baseUrl}/api/expenses/categories`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch expense categories');
+        }
+
+        return response.json();
+    }
+
+    // Get expense suppliers (for autocomplete)
+    async getExpenseSuppliers(token: string) {
+        const response = await this.fetch(`${this.baseUrl}/api/expenses/suppliers`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch expense suppliers');
+        }
+
+        return response.json();
+    }
+
+    // Get expense statistics
+    async getExpenseStatistics(token: string, startDate?: string, endDate?: string) {
+        const params = new URLSearchParams();
+        if (startDate) params.append('startDate', startDate);
+        if (endDate) params.append('endDate', endDate);
+
+        const url = `${this.baseUrl}/api/expenses/statistics${params.toString() ? `?${params}` : ''}`;
+
+        const response = await this.fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch expense statistics');
         }
 
         return response.json();

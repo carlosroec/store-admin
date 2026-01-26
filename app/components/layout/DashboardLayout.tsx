@@ -17,6 +17,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: 'Brands', href: '/brands', icon: '🏢' },
     { name: 'Customers', href: '/customers', icon: '👥' },
     { name: 'Sales', href: '/sales', icon: '💰' },
+    { name: 'Expenses', href: '/expenses', icon: '💸' },
     { name: 'Reports', href: '/reports', icon: '📈' },
   ];
 

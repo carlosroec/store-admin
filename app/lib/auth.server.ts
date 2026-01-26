@@ -1,9 +1,9 @@
 import { createCookieSessionStorage, redirect } from "@remix-run/node";
 
-const SESSION_SECRET = process.env.SESSION_SECRET || 'default-secret-change-in-production';
+const SESSION_SECRET = process.env.SESSION_SECRET;
 
-if (!process.env.SESSION_SECRET) {
-    console.warn('⚠️  SESSION_SECRET not set, using default (NOT SECURE)');
+if (!SESSION_SECRET) {
+    throw new Error('SESSION_SECRET environment variable is required.');
 }
 
 const sessionStorage = createCookieSessionStorage({

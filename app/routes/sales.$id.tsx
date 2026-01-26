@@ -1,5 +1,6 @@
 import { json, type LoaderFunctionArgs, type ActionFunctionArgs, redirect } from "@remix-run/node";
 import { useLoaderData, useActionData, Form, Link, useNavigation } from "@remix-run/react";
+import { useState } from "react";
 import { requireUserToken } from "~/lib/auth.server";
 import { api } from "~/lib/api.server";
 import { DashboardLayout } from "~/components/layout/DashboardLayout";
@@ -77,6 +78,14 @@ export default function SaleDetail() {
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+
+  const copyItemToClipboard = async (item: any, index: number) => {
+    const text = `${item.productName} (${item.sku}) - Cant: ${item.quantity}`;
+    await navigator.clipboard.writeText(text);
+    setCopiedIndex(index);
+    setTimeout(() => setCopiedIndex(null), 2000);
+  };
 
   const statusColors: Record<string, string> = {
     quote: "bg-blue-100 text-blue-800 border-blue-200",
@@ -206,8 +215,28 @@ export default function SaleDetail() {
                 {sale.items.map((item: any, index: number) => (
                   <tr key={index} className="border-b border-gray-100">
                     <td className="py-3 px-2">
-                      <p className="font-medium">{item.productName}</p>
-                      <p className="text-sm text-gray-500">SKU: {item.sku}</p>
+                      <div className="flex items-start gap-2">
+                        <div className="flex-1">
+                          <p className="font-medium">{item.productName}</p>
+                          <p className="text-sm text-gray-500">SKU: {item.sku}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => copyItemToClipboard(item, index)}
+                          className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                          title="Copy to clipboard"
+                        >
+                          {copiedIndex === index ? (
+                            <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          ) : (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                          )}
+                        </button>
+                      </div>
                     </td>
                     <td className="text-right py-3 px-2">S/{item.unitPrice.toFixed(2)}</td>
                     <td className="text-right py-3 px-2">{item.quantity}</td>

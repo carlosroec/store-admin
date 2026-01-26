@@ -35,8 +35,52 @@ export function SaleItemsList({ items, onRemove, onUpdateQuantity, generalDiscou
   
   return (
     <div className="space-y-4">
-      {/* Items List */}
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      {/* Items List - Mobile Cards */}
+      <div className="md:hidden space-y-3">
+        {items.map((item, index) => (
+          <div key={index} className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-gray-900 truncate">{item.productName}</div>
+                <div className="text-sm text-gray-500">SKU: {item.sku}</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => onRemove(index)}
+                className="text-red-600 hover:text-red-700 p-1"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="mt-3 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="text-sm text-gray-600">
+                  <span className="text-gray-500">Precio:</span> S/{item.unitPrice.toFixed(2)}
+                </div>
+                {item.discount > 0 && (
+                  <div className="text-sm text-green-600">-{item.discount}%</div>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-gray-500">Cant:</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={item.quantity}
+                  onChange={(e) => onUpdateQuantity(index, parseInt(e.target.value) || 1)}
+                  className="w-16 px-2 py-1 border border-gray-300 rounded text-center text-sm"
+                />
+              </div>
+            </div>
+            <div className="mt-2 text-right">
+              <span className="text-lg font-semibold text-gray-900">S/{item.subtotal.toFixed(2)}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Items List - Desktop Table */}
+      <div className="hidden md:block bg-white rounded-lg border border-gray-200 overflow-hidden">
         <table className="w-full">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
