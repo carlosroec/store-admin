@@ -81,7 +81,7 @@ export default function SaleDetail() {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
   const copyItemToClipboard = async (item: any, index: number) => {
-    const text = `${item.productName} (${item.sku}) - Cant: ${item.quantity}`;
+    const text = `${item.productName} (${item.sku})`;
     await navigator.clipboard.writeText(text);
     setCopiedIndex(index);
     setTimeout(() => setCopiedIndex(null), 2000);

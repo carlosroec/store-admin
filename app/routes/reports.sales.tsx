@@ -19,17 +19,21 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const startDate = url.searchParams.get("startDate") || defaultStartDate;
   const endDate = url.searchParams.get("endDate") || defaultEndDate;
 
-  const data = await api.getSalesStatistics(token, startDate, endDate);
+  const [salesData, expenseData] = await Promise.all([
+    api.getSalesStatistics(token, startDate, endDate),
+    api.getExpenseStatistics(token, startDate, endDate),
+  ]);
 
   return json({
-    statistics: data.statistics,
+    statistics: salesData.statistics,
+    expenseStatistics: expenseData.statistics,
     startDate,
     endDate,
   });
 }
 
 export default function SalesReport() {
-  const { statistics, startDate, endDate } = useLoaderData<typeof loader>();
+  const { statistics, expenseStatistics, startDate, endDate } = useLoaderData<typeof loader>();
   const [searchParams] = useSearchParams();
 
   const formatCurrency = (amount: number) => {
@@ -70,6 +74,17 @@ export default function SalesReport() {
     shalom: "Shalom",
     other: "Other",
   };
+
+  const expenseTypeLabels: Record<string, string> = {
+    operational: "Operational",
+    inventory: "Inventory",
+    service: "Service",
+    other: "Other",
+  };
+
+  const totalRevenue = statistics.revenue.total || 0;
+  const totalExpenses = expenseStatistics?.totals?.total || 0;
+  const netProfit = totalRevenue - totalExpenses;
 
   return (
     <DashboardLayout>
@@ -116,14 +131,32 @@ export default function SalesReport() {
           </Form>
         </Card>
 
-        {/* Revenue Summary */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        {/* Profit Summary */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <Card className="bg-green-50 border-green-200">
             <p className="text-sm text-green-600 font-medium">Total Revenue</p>
             <p className="text-2xl md:text-3xl font-bold text-green-700">
-              {formatCurrency(statistics.revenue.total || 0)}
+              {formatCurrency(totalRevenue)}
             </p>
           </Card>
+          <Card className="bg-red-50 border-red-200">
+            <p className="text-sm text-red-600 font-medium">Total Expenses</p>
+            <p className="text-2xl md:text-3xl font-bold text-red-700">
+              -{formatCurrency(totalExpenses)}
+            </p>
+          </Card>
+          <Card className={netProfit >= 0 ? "bg-emerald-50 border-emerald-200" : "bg-orange-50 border-orange-200"}>
+            <p className={`text-sm font-medium ${netProfit >= 0 ? "text-emerald-600" : "text-orange-600"}`}>
+              Net Profit
+            </p>
+            <p className={`text-2xl md:text-3xl font-bold ${netProfit >= 0 ? "text-emerald-700" : "text-orange-700"}`}>
+              {formatCurrency(netProfit)}
+            </p>
+          </Card>
+        </div>
+
+        {/* Revenue Summary */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <Card className="bg-blue-50 border-blue-200">
             <p className="text-sm text-blue-600 font-medium">Orders</p>
             <p className="text-2xl md:text-3xl font-bold text-blue-700">
@@ -140,6 +173,12 @@ export default function SalesReport() {
             <p className="text-sm text-yellow-600 font-medium">IGV Collected</p>
             <p className="text-2xl md:text-3xl font-bold text-yellow-700">
               {formatCurrency(statistics.revenue.tax || 0)}
+            </p>
+          </Card>
+          <Card className="bg-gray-50 border-gray-200">
+            <p className="text-sm text-gray-600 font-medium">Expense Count</p>
+            <p className="text-2xl md:text-3xl font-bold text-gray-700">
+              {expenseStatistics?.totals?.count || 0}
             </p>
           </Card>
         </div>
@@ -174,6 +213,53 @@ export default function SalesReport() {
             </div>
           </div>
         </Card>
+
+        {/* Expenses Breakdown */}
+        {expenseStatistics && (expenseStatistics.byType?.length > 0 || expenseStatistics.byCategory?.length > 0) && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            {/* By Type */}
+            {expenseStatistics.byType?.length > 0 && (
+              <Card>
+                <h3 className="text-lg font-semibold mb-4">Expenses by Type</h3>
+                <div className="space-y-3">
+                  {expenseStatistics.byType.map((stat: any) => (
+                    <div key={stat._id} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-700">
+                          {expenseTypeLabels[stat._id] || stat._id}
+                        </span>
+                        <span className="text-sm text-gray-500">({stat.count})</span>
+                      </div>
+                      <span className="font-semibold text-red-600">
+                        -{formatCurrency(stat.total)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
+
+            {/* By Category */}
+            {expenseStatistics.byCategory?.length > 0 && (
+              <Card>
+                <h3 className="text-lg font-semibold mb-4">Expenses by Category</h3>
+                <div className="space-y-3">
+                  {expenseStatistics.byCategory.slice(0, 10).map((stat: any) => (
+                    <div key={stat._id} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-700">{stat._id}</span>
+                        <span className="text-sm text-gray-500">({stat.count})</span>
+                      </div>
+                      <span className="font-semibold text-red-600">
+                        -{formatCurrency(stat.total)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
+          </div>
+        )}
 
         {/* Sales by Status and Payment */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">

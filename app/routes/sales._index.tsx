@@ -161,10 +161,12 @@ export default function SalesIndex() {
                       <span className="font-medium">Date:</span>{' '}
                       {new Date(sale.quoteDate).toLocaleDateString()}
                     </p>
-                    {sale.quoteValidUntil && (
+                    {sale.shippingMethod && (
                       <p className="hidden sm:block">
-                        <span className="font-medium">Valid until:</span>{' '}
-                        {new Date(sale.quoteValidUntil).toLocaleDateString()}
+                        <span className="font-medium">Shipping:</span>{' '}
+                        {sale.shippingMethod === 'olva' ? 'Olva Courier' :
+                         sale.shippingMethod === 'shalom' ? 'Shalom' :
+                         sale.shippingMethod.charAt(0).toUpperCase() + sale.shippingMethod.slice(1)}
                       </p>
                     )}
                     <p>
