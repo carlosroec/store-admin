@@ -1,7 +1,7 @@
 import { json, type LoaderFunctionArgs } from "@remix-run/node";
 import { useLoaderData, Link, Form, useNavigation } from "@remix-run/react";
 import { requireUserToken } from "~/lib/auth.server";
-import { api } from "~/lib/api.server";
+import { api, type Sale, type StockAvailability } from "~/lib/api.server";
 import { DashboardLayout } from "~/components/layout/DashboardLayout";
 import { Button } from "~/components/ui/Button";
 import { Card } from "~/components/ui/Card";
@@ -22,19 +22,36 @@ export async function loader({ request }: LoaderFunctionArgs) {
     limit: 20
   });
 
+  // Check stock availability for quotes
+  const stockAvailability: Record<string, StockAvailability> = {};
+  const quotes = salesData.sales.filter((sale: Sale) => sale.status === 'quote');
+
+  await Promise.all(
+    quotes.map(async (quote: Sale) => {
+      try {
+        stockAvailability[quote._id] = await api.checkStockAvailability(token, quote._id);
+      } catch {
+        // If check fails, assume stock is not available
+        stockAvailability[quote._id] = { available: false, items: [] };
+      }
+    })
+  );
+
   return json({
     sales: salesData.sales,
     pagination: salesData.pagination,
     filters: { search, status },
+    stockAvailability,
   });
 }
 
 export default function SalesIndex() {
-  const { sales, pagination, filters } = useLoaderData<typeof loader>();
+  const { sales, pagination, filters, stockAvailability } = useLoaderData<typeof loader>();
   const navigation = useNavigation();
   const isSearching = navigation.state === "loading";
 
   const statusColors: Record<string, string> = {
+    reservation: 'bg-orange-100 text-orange-800',
     quote: 'bg-blue-100 text-blue-800',
     pending: 'bg-yellow-100 text-yellow-800',
     paid: 'bg-green-100 text-green-800',
@@ -47,6 +64,7 @@ export default function SalesIndex() {
 
   const statuses = [
     { value: "", label: "All Statuses" },
+    { value: "reservation", label: "Reservation" },
     { value: "quote", label: "Quote" },
     { value: "pending", label: "Pending" },
     { value: "paid", label: "Paid" },
@@ -67,11 +85,18 @@ export default function SalesIndex() {
             {pagination.total} total
           </p>
         </div>
-        <Link to="/sales/new">
-          <Button variant="primary" className="w-full sm:w-auto">
-            + New Quote
-          </Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link to="/sales/new-reservation">
+            <Button variant="secondary" className="w-full sm:w-auto">
+              + New Reservation
+            </Button>
+          </Link>
+          <Link to="/sales/new">
+            <Button variant="primary" className="w-full sm:w-auto">
+              + New Quote
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Search and Filters */}
@@ -151,6 +176,15 @@ export default function SalesIndex() {
                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[sale.status]}`}>
                       {sale.status.toUpperCase()}
                     </span>
+                    {sale.status === 'quote' && stockAvailability[sale._id] && (
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                        stockAvailability[sale._id].available
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {stockAvailability[sale._id].available ? 'Stock OK' : 'Sin stock'}
+                      </span>
+                    )}
                   </div>
 
                   <div className="space-y-1 text-sm text-gray-600">
@@ -180,9 +214,20 @@ export default function SalesIndex() {
                     <p className="text-xl sm:text-2xl font-bold text-gray-900">
                       S/{sale.total.toFixed(2)}
                     </p>
-                    <p className="text-xs sm:text-sm text-gray-500">
-                      Subtotal: S/{sale.subtotal.toFixed(2)}
-                    </p>
+                    {sale.status === 'reservation' && (
+                      <div className="text-xs sm:text-sm">
+                        <span className="text-green-600">Paid: S/{(sale.totalPaid || 0).toFixed(2)}</span>
+                        {' | '}
+                        <span className={`${(sale.total - (sale.totalPaid || 0)) > 0 ? 'text-orange-600' : 'text-green-600'}`}>
+                          Balance: S/{(sale.total - (sale.totalPaid || 0)).toFixed(2)}
+                        </span>
+                      </div>
+                    )}
+                    {sale.status !== 'reservation' && (
+                      <p className="text-xs sm:text-sm text-gray-500">
+                        Subtotal: S/{sale.subtotal.toFixed(2)}
+                      </p>
+                    )}
                   </div>
 
                   <Link to={`/sales/${sale._id}`}>

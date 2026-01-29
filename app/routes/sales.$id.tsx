@@ -1,11 +1,14 @@
 import { json, type LoaderFunctionArgs, type ActionFunctionArgs, redirect } from "@remix-run/node";
-import { useLoaderData, useActionData, Form, Link, useNavigation } from "@remix-run/react";
+import { useLoaderData, useActionData, Form, Link, useNavigation, useRevalidator } from "@remix-run/react";
 import { useState } from "react";
 import { requireUserToken } from "~/lib/auth.server";
-import { api } from "~/lib/api.server";
+import { api, type Payment, type StockAvailability } from "~/lib/api.server";
 import { DashboardLayout } from "~/components/layout/DashboardLayout";
 import { Card } from "~/components/ui/Card";
 import { Button } from "~/components/ui/Button";
+import { PaymentsList } from "~/components/sales/PaymentsList";
+import { AddPaymentModal } from "~/components/sales/AddPaymentModal";
+import { AddRefundModal } from "~/components/sales/AddRefundModal";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const token = await requireUserToken(request);
@@ -17,10 +20,40 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
   try {
     const data = await api.getSaleWithLinked(token, id);
+
+    // Fetch payments for reservations and pending sales
+    let paymentsData = { payments: [], summary: { totalPayments: 0, totalRefunds: 0, netPaid: 0, saleTotal: 0, balance: 0 } };
+    if (['reservation', 'pending'].includes(data.sale.status) || (data.sale.totalPaid && data.sale.totalPaid > 0)) {
+      try {
+        paymentsData = await api.getPayments(token, id);
+      } catch {
+        // Payments might not exist yet
+      }
+    }
+
+    // Check stock availability for quotes
+    let stockAvailability: StockAvailability | null = null;
+    if (data.sale.status === 'quote') {
+      try {
+        stockAvailability = await api.checkStockAvailability(token, id);
+      } catch {
+        stockAvailability = { available: false, items: [] };
+      }
+    }
+
     return json({
       sale: data.sale,
       linkedSales: data.linkedSales || [],
-      parentSale: data.parentSale || null
+      parentSale: data.parentSale || null,
+      payments: paymentsData.payments || [],
+      paymentsSummary: paymentsData.summary || {
+        totalPayments: 0,
+        totalRefunds: 0,
+        netPaid: data.sale.totalPaid || 0,
+        saleTotal: data.sale.total,
+        balance: data.sale.total - (data.sale.totalPaid || 0)
+      },
+      stockAvailability
     });
   } catch (error) {
     throw new Response("Sale not found", { status: 404 });
@@ -60,6 +93,41 @@ export async function action({ request, params }: ActionFunctionArgs) {
         await api.updateSaleStatus(token, id, { status: "cancelled" });
         break;
 
+      case "confirm-reservation":
+        await api.confirmReservation(token, id);
+        break;
+
+      case "cancel-reservation":
+        await api.cancelReservation(token, id);
+        break;
+
+      case "add-payment":
+        const paymentData = {
+          amount: parseFloat(formData.get("amount") as string),
+          paymentMethod: formData.get("paymentMethod") as string,
+          paymentDate: formData.get("paymentDate") as string,
+          reference: formData.get("reference") as string || undefined,
+          notes: formData.get("notes") as string || undefined,
+        };
+        await api.addPayment(token, id, paymentData);
+        break;
+
+      case "add-refund":
+        const refundData = {
+          amount: parseFloat(formData.get("amount") as string),
+          paymentMethod: formData.get("paymentMethod") as string,
+          paymentDate: formData.get("paymentDate") as string,
+          reference: formData.get("reference") as string || undefined,
+          notes: formData.get("notes") as string || undefined,
+        };
+        await api.addRefund(token, id, refundData);
+        break;
+
+      case "delete-payment":
+        const paymentId = formData.get("paymentId") as string;
+        await api.deletePayment(token, id, paymentId);
+        break;
+
       default:
         return json({ error: "Invalid action" }, { status: 400 });
     }
@@ -74,11 +142,14 @@ export async function action({ request, params }: ActionFunctionArgs) {
 }
 
 export default function SaleDetail() {
-  const { sale, linkedSales, parentSale } = useLoaderData<typeof loader>();
+  const { sale, linkedSales, parentSale, payments, paymentsSummary, stockAvailability } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
+  const revalidator = useRevalidator();
   const isSubmitting = navigation.state === "submitting";
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showRefundModal, setShowRefundModal] = useState(false);
 
   const copyItemToClipboard = async (item: any, index: number) => {
     const text = `${item.productName} (${item.sku})`;
@@ -88,6 +159,7 @@ export default function SaleDetail() {
   };
 
   const statusColors: Record<string, string> = {
+    reservation: "bg-orange-100 text-orange-800 border-orange-200",
     quote: "bg-blue-100 text-blue-800 border-blue-200",
     pending: "bg-yellow-100 text-yellow-800 border-yellow-200",
     paid: "bg-green-100 text-green-800 border-green-200",
@@ -98,7 +170,9 @@ export default function SaleDetail() {
     rejected: "bg-gray-100 text-gray-800 border-gray-200",
   };
 
-  const canEdit = sale.status === "quote";
+  // Permissions
+  const isReservation = sale.status === "reservation";
+  const canEdit = sale.status === "quote" || sale.status === "reservation";
   const canConvertToPending = sale.status === "quote";
   const canMarkAsPaid = sale.status === "pending";
   const canStartProcessing = sale.status === "paid";
@@ -106,6 +180,11 @@ export default function SaleDetail() {
   const canMarkDelivered = sale.status === "shipped";
   const canAddProducts = ["paid", "processing"].includes(sale.status);
   const canCancel = ["quote", "pending", "paid", "processing", "shipped"].includes(sale.status);
+  const canConfirmReservation = sale.status === "reservation";
+  const canCancelReservation = sale.status === "reservation";
+  const canAddPayment = ["reservation", "pending"].includes(sale.status) && paymentsSummary.balance > 0;
+  const canAddRefund = ["reservation", "pending", "cancelled"].includes(sale.status) && paymentsSummary.netPaid > 0;
+  const canDeletePayment = ["reservation", "pending"].includes(sale.status);
 
   return (
     <DashboardLayout>
@@ -141,6 +220,34 @@ export default function SaleDetail() {
         {actionData?.error && (
           <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
             {actionData.error}
+          </div>
+        )}
+
+        {/* Stock Availability Warning */}
+        {stockAvailability && !stockAvailability.available && (
+          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+            <div className="flex items-start gap-2">
+              <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              <div>
+                <p className="font-medium">Stock insuficiente</p>
+                <p className="text-sm mt-1">
+                  Algunos productos no tienen stock disponible. No se podrá convertir esta cotización a venta pendiente hasta que se resuelva el problema de inventario.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {stockAvailability && stockAvailability.available && (
+          <div className="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
+            <div className="flex items-center gap-2">
+              <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              <p className="font-medium">Stock disponible para todos los productos</p>
+            </div>
           </div>
         )}
 
@@ -203,6 +310,11 @@ export default function SaleDetail() {
                     Unit Price
                   </th>
                   <th className="text-right py-3 px-2 text-sm font-medium text-gray-600">Qty</th>
+                  {stockAvailability && (
+                    <th className="text-right py-3 px-2 text-sm font-medium text-gray-600">
+                      Available
+                    </th>
+                  )}
                   <th className="text-right py-3 px-2 text-sm font-medium text-gray-600">
                     Discount
                   </th>
@@ -212,38 +324,62 @@ export default function SaleDetail() {
                 </tr>
               </thead>
               <tbody>
-                {sale.items.map((item: any, index: number) => (
-                  <tr key={index} className="border-b border-gray-100">
-                    <td className="py-3 px-2">
-                      <div className="flex items-start gap-2">
-                        <div className="flex-1">
-                          <p className="font-medium">{item.productName}</p>
-                          <p className="text-sm text-gray-500">SKU: {item.sku}</p>
+                {sale.items.map((item: any, index: number) => {
+                  const stockInfo = stockAvailability?.items.find(
+                    (si) => si.productId === item.productId
+                  );
+                  const hasStockIssue = stockInfo && !stockInfo.hasStock;
+
+                  return (
+                    <tr key={index} className={`border-b border-gray-100 ${hasStockIssue ? 'bg-red-50' : ''}`}>
+                      <td className="py-3 px-2">
+                        <div className="flex items-start gap-2">
+                          <div className="flex-1">
+                            <p className={`font-medium ${hasStockIssue ? 'text-red-700' : ''}`}>
+                              {item.productName}
+                            </p>
+                            <p className={`text-sm ${hasStockIssue ? 'text-red-500' : 'text-gray-500'}`}>
+                              SKU: {item.sku}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => copyItemToClipboard(item, index)}
+                            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                            title="Copy to clipboard"
+                          >
+                            {copiedIndex === index ? (
+                              <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                            ) : (
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                              </svg>
+                            )}
+                          </button>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => copyItemToClipboard(item, index)}
-                          className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
-                          title="Copy to clipboard"
-                        >
-                          {copiedIndex === index ? (
-                            <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                          ) : (
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                            </svg>
-                          )}
-                        </button>
-                      </div>
-                    </td>
-                    <td className="text-right py-3 px-2">S/{item.unitPrice.toFixed(2)}</td>
-                    <td className="text-right py-3 px-2">{item.quantity}</td>
-                    <td className="text-right py-3 px-2">{item.discount}%</td>
-                    <td className="text-right py-3 px-2 font-medium">S/{item.subtotal.toFixed(2)}</td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className={`text-right py-3 px-2 ${hasStockIssue ? 'text-red-700' : ''}`}>
+                        S/{item.unitPrice.toFixed(2)}
+                      </td>
+                      <td className={`text-right py-3 px-2 ${hasStockIssue ? 'text-red-700' : ''}`}>
+                        {item.quantity}
+                      </td>
+                      {stockAvailability && (
+                        <td className={`text-right py-3 px-2 ${hasStockIssue ? 'text-red-700 font-medium' : 'text-green-600'}`}>
+                          {stockInfo ? stockInfo.available : '-'}
+                        </td>
+                      )}
+                      <td className={`text-right py-3 px-2 ${hasStockIssue ? 'text-red-700' : ''}`}>
+                        {item.discount}%
+                      </td>
+                      <td className={`text-right py-3 px-2 font-medium ${hasStockIssue ? 'text-red-700' : ''}`}>
+                        S/{item.subtotal.toFixed(2)}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -287,6 +423,32 @@ export default function SaleDetail() {
             </div>
           </div>
         </Card>
+
+        {/* Payments Section - for reservations and pending */}
+        {(isReservation || sale.status === 'pending' || payments.length > 0) && (
+          <Card className="mb-6">
+            <h3 className="text-lg font-semibold mb-4">Payments</h3>
+            <PaymentsList
+              payments={payments as Payment[]}
+              summary={paymentsSummary}
+              canAddPayment={canAddPayment}
+              canAddRefund={canAddRefund}
+              canDelete={canDeletePayment}
+              onAddPayment={() => setShowPaymentModal(true)}
+              onAddRefund={() => setShowRefundModal(true)}
+              onDeletePayment={(paymentId) => {
+                const form = document.createElement('form');
+                form.method = 'post';
+                form.innerHTML = `
+                  <input type="hidden" name="intent" value="delete-payment" />
+                  <input type="hidden" name="paymentId" value="${paymentId}" />
+                `;
+                document.body.appendChild(form);
+                form.submit();
+              }}
+            />
+          </Card>
+        )}
 
         {/* Dates */}
         <Card className="mb-6">
@@ -386,6 +548,25 @@ export default function SaleDetail() {
         <Card>
           <h3 className="text-lg font-semibold mb-4">Actions</h3>
           <div className="flex flex-wrap gap-3">
+            {/* Reservation actions */}
+            {canConfirmReservation && (
+              <Form method="post">
+                <input type="hidden" name="intent" value="confirm-reservation" />
+                <Button type="submit" variant="primary" isLoading={isSubmitting}>
+                  {paymentsSummary.balance <= 0 ? 'Confirm & Mark Paid' : 'Confirm Reservation'}
+                </Button>
+              </Form>
+            )}
+
+            {canCancelReservation && (
+              <Form method="post">
+                <input type="hidden" name="intent" value="cancel-reservation" />
+                <Button type="submit" variant="danger" isLoading={isSubmitting}>
+                  Cancel Reservation
+                </Button>
+              </Form>
+            )}
+
             {canConvertToPending && (
               <Form method="post">
                 <input type="hidden" name="intent" value="convert-to-pending" />
@@ -455,7 +636,7 @@ export default function SaleDetail() {
               </Link>
             )}
 
-            {canCancel && (
+            {canCancel && !isReservation && (
               <Form method="post">
                 <input type="hidden" name="intent" value="cancel" />
                 <Button type="submit" variant="danger" isLoading={isSubmitting}>
@@ -465,6 +646,50 @@ export default function SaleDetail() {
             )}
           </div>
         </Card>
+
+        {/* Payment Modal */}
+        <AddPaymentModal
+          isOpen={showPaymentModal}
+          onClose={() => setShowPaymentModal(false)}
+          maxAmount={paymentsSummary.balance}
+          isSubmitting={isSubmitting}
+          onSubmit={(data) => {
+            const form = document.createElement('form');
+            form.method = 'post';
+            form.innerHTML = `
+              <input type="hidden" name="intent" value="add-payment" />
+              <input type="hidden" name="amount" value="${data.amount}" />
+              <input type="hidden" name="paymentMethod" value="${data.paymentMethod}" />
+              <input type="hidden" name="paymentDate" value="${data.paymentDate}" />
+              <input type="hidden" name="reference" value="${data.reference || ''}" />
+              <input type="hidden" name="notes" value="${data.notes || ''}" />
+            `;
+            document.body.appendChild(form);
+            form.submit();
+          }}
+        />
+
+        {/* Refund Modal */}
+        <AddRefundModal
+          isOpen={showRefundModal}
+          onClose={() => setShowRefundModal(false)}
+          maxAmount={paymentsSummary.netPaid}
+          isSubmitting={isSubmitting}
+          onSubmit={(data) => {
+            const form = document.createElement('form');
+            form.method = 'post';
+            form.innerHTML = `
+              <input type="hidden" name="intent" value="add-refund" />
+              <input type="hidden" name="amount" value="${data.amount}" />
+              <input type="hidden" name="paymentMethod" value="${data.paymentMethod}" />
+              <input type="hidden" name="paymentDate" value="${data.paymentDate}" />
+              <input type="hidden" name="reference" value="${data.reference || ''}" />
+              <input type="hidden" name="notes" value="${data.notes || ''}" />
+            `;
+            document.body.appendChild(form);
+            form.submit();
+          }}
+        />
       </div>
     </DashboardLayout>
   );

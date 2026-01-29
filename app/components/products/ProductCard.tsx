@@ -14,8 +14,10 @@ export function ProductCard({ product }: ProductCardProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const fetcher = useFetcher();
 
-  const stockStatus = product.stock > 0 ? 'In Stock' : 'Out of Stock';
-  const stockColor = product.stock > 0 ? 'text-green-600' : 'text-red-600';
+  const reservedStock = product.reservedStock || 0;
+  const availableStock = product.stock - reservedStock;
+  const stockStatus = availableStock > 0 ? 'In Stock' : 'Out of Stock';
+  const stockColor = availableStock > 0 ? 'text-green-600' : 'text-red-600';
   const isDisabled = product.isActive === false;
   const isUpdating = fetcher.state !== 'idle';
 
@@ -94,9 +96,22 @@ export function ProductCard({ product }: ProductCardProps) {
           <p className="text-sm text-gray-600 mb-2">{product.brand}</p>
 
           <div className="flex items-center justify-between mb-3">
-            <span className="text-2xl font-bold text-gray-900">
-              S/{product.price.toFixed(2)}
-            </span>
+            <div>
+              {product.offerPrice && product.offerPrice > 0 ? (
+                <>
+                  <span className="text-2xl font-bold text-red-600">
+                    S/{product.offerPrice.toFixed(2)}
+                  </span>
+                  <span className="ml-2 text-sm text-gray-400 line-through">
+                    S/{product.price.toFixed(2)}
+                  </span>
+                </>
+              ) : (
+                <span className="text-2xl font-bold text-gray-900">
+                  S/{product.price.toFixed(2)}
+                </span>
+              )}
+            </div>
             <span className={`text-sm font-medium ${stockColor}`}>
               {stockStatus}
             </span>
@@ -110,7 +125,14 @@ export function ProductCard({ product }: ProductCardProps) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
-          <span className="text-sm text-gray-600">Stock:</span>
+          <div>
+            <span className="text-sm text-gray-600">Stock:</span>
+            {reservedStock > 0 && (
+              <span className="text-xs text-orange-600 ml-1">
+                ({reservedStock} reserved)
+              </span>
+            )}
+          </div>
 
           {isEditingStock ? (
             <div className="flex items-center gap-1">
@@ -150,8 +172,11 @@ export function ProductCard({ product }: ProductCardProps) {
                 className={`min-w-[3rem] px-2 py-1 text-center font-semibold rounded-lg transition-colors ${
                   isUpdating
                     ? 'bg-gray-100 text-gray-400'
+                    : reservedStock > 0
+                    ? 'bg-orange-50 text-orange-700 hover:bg-orange-100 active:bg-orange-200'
                     : 'bg-primary-50 text-primary-700 hover:bg-primary-100 active:bg-primary-200'
                 }`}
+                title={reservedStock > 0 ? `${availableStock} available (${reservedStock} reserved)` : undefined}
               >
                 {isUpdating ? '...' : stockValue}
               </button>

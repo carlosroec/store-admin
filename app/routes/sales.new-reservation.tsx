@@ -26,9 +26,9 @@ export async function action({ request }: ActionFunctionArgs) {
   const shippingCost = parseFloat(formData.get("shippingCost") as string) || 0;
   const shippingMethod = (formData.get("shippingMethod") as string) || undefined;
   const voucherType = (formData.get("voucherType") as string) || undefined;
-  const quoteValidDays = parseInt(formData.get("quoteValidDays") as string) || 7;
   const notes = (formData.get("notes") as string) || undefined;
   const internalNotes = (formData.get("internalNotes") as string) || undefined;
+  const reservationType = (formData.get("reservationType") as string) || 'standard';
 
   const errors: Record<string, string> = {};
 
@@ -45,33 +45,32 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 
   try {
-    const result = await api.createSale(token, {
+    const result = await api.createReservation(token, {
       customerId,
       items,
       discount,
       shippingCost,
       shippingMethod,
       voucherType,
-      quoteValidDays,
       notes,
       internalNotes,
+      reservationType: reservationType as 'standard' | 'layaway',
     });
 
     return redirect(`/sales/${result.sale._id}`);
   } catch (error) {
     return json(
-      { errors: { general: error instanceof Error ? error.message : "Failed to create quote" } },
+      { errors: { general: error instanceof Error ? error.message : "Failed to create reservation" } },
       { status: 400 }
     );
   }
 }
 
-export default function NewSale() {
+export default function NewReservation() {
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
 
-  // Fetchers para búsquedas - se comunican con resource routes del servidor
   const customerFetcher = useFetcher<{ customers: Customer[] }>();
   const productFetcher = useFetcher<{ products: Product[] }>();
 
@@ -81,9 +80,7 @@ export default function NewSale() {
   const [shippingCost, setShippingCost] = useState(0);
   const [shippingMethod, setShippingMethod] = useState("");
   const [voucherType, setVoucherType] = useState("");
-  const [quoteValidDays, setQuoteValidDays] = useState(7);
 
-  // Obtener resultados de los fetchers
   const customers = customerFetcher.data?.customers || [];
   const products = productFetcher.data?.products || [];
   const customersLoading = customerFetcher.state === "loading";
@@ -98,7 +95,6 @@ export default function NewSale() {
   };
 
   const handleAddProduct = (product: Product, quantity: number, discount: number) => {
-    // Use offer price if available, otherwise use regular price
     const effectivePrice = (product.offerPrice && product.offerPrice > 0) ? product.offerPrice : product.price;
     const priceAfterDiscount = effectivePrice * (1 - discount / 100);
     const subtotal = priceAfterDiscount * quantity;
@@ -130,12 +126,23 @@ export default function NewSale() {
     setItems(updatedItems);
   };
 
+  // Calculate totals for display
+  const itemsSubtotal = items.reduce((sum, item) => sum + item.subtotal, 0);
+  const total = itemsSubtotal - generalDiscount + shippingCost;
+
   return (
     <DashboardLayout>
       <div className="max-w-6xl mx-auto">
-        <h2 className="text-3xl font-bold text-gray-900 mb-6">Create New Quote / Sale</h2>
+        <div className="mb-6">
+          <h2 className="text-3xl font-bold text-gray-900">Create New Reservation</h2>
+          <p className="text-gray-600 mt-1">
+            Reservations immediately reserve stock and allow partial payments
+          </p>
+        </div>
 
         <Form method="post" className="space-y-6">
+          <input type="hidden" name="reservationType" value="standard" />
+
           {/* Customer Selection */}
           <Card>
             <h3 className="text-lg font-semibold mb-4">1. Select Customer</h3>
@@ -155,6 +162,11 @@ export default function NewSale() {
           {/* Product Selection */}
           <Card>
             <h3 className="text-lg font-semibold mb-4">2. Add Products</h3>
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-4">
+              <p className="text-sm text-orange-800">
+                Stock will be reserved immediately when you create this reservation.
+              </p>
+            </div>
             <ProductSelector
               onAdd={handleAddProduct}
               onSearch={handleProductSearch}
@@ -206,17 +218,6 @@ export default function NewSale() {
 
               <Input
                 type="number"
-                name="quoteValidDays"
-                label="Quote Valid Days"
-                min="1"
-                value={quoteValidDays}
-                onChange={(e) => setQuoteValidDays(parseInt(e.target.value) || 7)}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-              <Input
-                type="number"
                 name="shippingCost"
                 label="Shipping Cost"
                 placeholder="0.00"
@@ -225,7 +226,9 @@ export default function NewSale() {
                 value={shippingCost}
                 onChange={(e) => setShippingCost(parseFloat(e.target.value) || 0)}
               />
+            </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Shipping Method
@@ -288,7 +291,39 @@ export default function NewSale() {
             </div>
           </Card>
 
-          {/* Error message - near the buttons for mobile visibility */}
+          {/* Summary */}
+          {items.length > 0 && (
+            <Card className="bg-gray-50">
+              <h3 className="text-lg font-semibold mb-4">Summary</h3>
+              <div className="space-y-2">
+                <div className="flex justify-between text-gray-600">
+                  <span>Items Subtotal</span>
+                  <span>S/{itemsSubtotal.toFixed(2)}</span>
+                </div>
+                {generalDiscount > 0 && (
+                  <div className="flex justify-between text-gray-600">
+                    <span>Discount</span>
+                    <span>-S/{generalDiscount.toFixed(2)}</span>
+                  </div>
+                )}
+                {shippingCost > 0 && (
+                  <div className="flex justify-between text-gray-600">
+                    <span>Shipping</span>
+                    <span>S/{shippingCost.toFixed(2)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-xl font-bold border-t pt-2 mt-2">
+                  <span>Total</span>
+                  <span>S/{total.toFixed(2)}</span>
+                </div>
+                <p className="text-sm text-orange-600 mt-2">
+                  You can add payments after creating the reservation
+                </p>
+              </div>
+            </Card>
+          )}
+
+          {/* Error message */}
           {actionData?.errors?.general && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
               {actionData.errors.general}
@@ -306,7 +341,7 @@ export default function NewSale() {
               isLoading={isSubmitting}
               disabled={!selectedCustomer || items.length === 0}
             >
-              Create Quote
+              Create Reservation
             </Button>
           </div>
         </Form>

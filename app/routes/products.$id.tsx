@@ -1,22 +1,38 @@
-import { json, type LoaderFunctionArgs } from "@remix-run/node";
-import { useLoaderData, Link } from "@remix-run/react";
+import { json, redirect, type LoaderFunctionArgs, type ActionFunctionArgs } from "@remix-run/node";
+import { useLoaderData, Link, Form, useNavigation } from "@remix-run/react";
 import { requireUserToken } from "~/lib/auth.server";
 import { api } from "~/lib/api.server";
 import { DashboardLayout } from "~/components/layout/DashboardLayout";
 import { Card } from "~/components/ui/Card";
 import { OptimizedImage } from "~/components/ui/OptimizedImage";
 import { MarkdownPreview } from "~/components/ui/MarkdownEditor";
+import { Button } from "~/components/ui/Button";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const token = await requireUserToken(request);
   const productData = await api.getProduct(token, params.id!);
-  
+
   return json({ product: productData.product });
+}
+
+export async function action({ request, params }: ActionFunctionArgs) {
+  const token = await requireUserToken(request);
+  const formData = await request.formData();
+  const intent = formData.get("intent") as string;
+
+  if (intent === "clone") {
+    const result = await api.cloneProduct(token, params.id!);
+    return redirect(`/products/${result.product._id}`);
+  }
+
+  return json({ error: "Invalid action" }, { status: 400 });
 }
 
 export default function ProductDetail() {
   const { product } = useLoaderData<typeof loader>();
-  
+  const navigation = useNavigation();
+  const isCloning = navigation.state === "submitting" && navigation.formData?.get("intent") === "clone";
+
   return (
     <DashboardLayout>
       <div className="max-w-4xl mx-auto">
@@ -43,11 +59,24 @@ export default function ProductDetail() {
             </div>
             <p className="text-gray-600 mt-1">SKU: {product.sku}</p>
           </div>
-          <Link to={`/products/${product._id}/edit`}>
-            <span className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-              Edit
-            </span>
-          </Link>
+          <div className="flex gap-2">
+            <Form method="post">
+              <input type="hidden" name="intent" value="clone" />
+              <Button
+                type="submit"
+                variant="secondary"
+                isLoading={isCloning}
+                disabled={isCloning}
+              >
+                Clone
+              </Button>
+            </Form>
+            <Link to={`/products/${product._id}/edit`}>
+              <Button variant="primary">
+                Edit
+              </Button>
+            </Link>
+          </div>
         </div>
         
         {/* Content */}
@@ -91,9 +120,23 @@ export default function ProductDetail() {
                 </div>
                 <div>
                   <dt className="text-sm font-medium text-gray-500">Price</dt>
-                  <dd className="text-2xl font-bold text-gray-900">
-                    S/{product.price.toFixed(2)}
-                  </dd>
+                  {product.offerPrice && product.offerPrice > 0 ? (
+                    <dd>
+                      <span className="text-2xl font-bold text-red-600">
+                        S/{product.offerPrice.toFixed(2)}
+                      </span>
+                      <span className="ml-2 text-base text-gray-400 line-through">
+                        S/{product.price.toFixed(2)}
+                      </span>
+                      <span className="ml-2 text-sm text-red-500 font-medium">
+                        (Oferta)
+                      </span>
+                    </dd>
+                  ) : (
+                    <dd className="text-2xl font-bold text-gray-900">
+                      S/{product.price.toFixed(2)}
+                    </dd>
+                  )}
                 </div>
               </dl>
             </Card>
@@ -102,11 +145,25 @@ export default function ProductDetail() {
               <h3 className="text-lg font-semibold mb-4">Inventory</h3>
               <dl className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <dt className="text-sm font-medium text-gray-500">Stock</dt>
-                  <dd className={`text-base font-semibold ${
-                    product.stock > 0 ? 'text-green-600' : 'text-red-600'
-                  }`}>
+                  <dt className="text-sm font-medium text-gray-500">Total Stock</dt>
+                  <dd className="text-base font-semibold text-gray-900">
                     {product.stock} units
+                  </dd>
+                </div>
+                {(product.reservedStock > 0) && (
+                  <div className="flex items-center justify-between">
+                    <dt className="text-sm font-medium text-gray-500">Reserved</dt>
+                    <dd className="text-base font-semibold text-orange-600">
+                      {product.reservedStock} units
+                    </dd>
+                  </div>
+                )}
+                <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+                  <dt className="text-sm font-medium text-gray-500">Available</dt>
+                  <dd className={`text-base font-semibold ${
+                    (product.stock - (product.reservedStock || 0)) > 0 ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {product.stock - (product.reservedStock || 0)} units
                   </dd>
                 </div>
               </dl>
@@ -119,6 +176,21 @@ export default function ProductDetail() {
           <Card className="mt-6">
             <h3 className="text-lg font-semibold mb-4">Description</h3>
             <MarkdownPreview content={product.description} className="text-gray-700" />
+          </Card>
+        )}
+
+        {/* Characteristics */}
+        {product.characteristics && product.characteristics.length > 0 && (
+          <Card className="mt-6">
+            <h3 className="text-lg font-semibold mb-4">Characteristics</h3>
+            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
+              {product.characteristics.map((char: { key: string; value: string }, index: number) => (
+                <div key={index} className="flex">
+                  <dt className="text-sm font-medium text-gray-500 min-w-[120px]">{char.key}</dt>
+                  <dd className="text-sm text-gray-900">{char.value}</dd>
+                </div>
+              ))}
+            </dl>
           </Card>
         )}
 
@@ -152,7 +224,14 @@ export default function ProductDetail() {
                     <p className="text-sm text-gray-500">SKU: {refill.sku}</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-semibold text-gray-900">S/{refill.price.toFixed(2)}</p>
+                    {refill.offerPrice && refill.offerPrice > 0 ? (
+                      <>
+                        <p className="font-semibold text-red-600">S/{refill.offerPrice.toFixed(2)}</p>
+                        <p className="text-xs text-gray-400 line-through">S/{refill.price.toFixed(2)}</p>
+                      </>
+                    ) : (
+                      <p className="font-semibold text-gray-900">S/{refill.price.toFixed(2)}</p>
+                    )}
                     {!refill.isActive && (
                       <span className="text-xs text-red-600">Disabled</span>
                     )}

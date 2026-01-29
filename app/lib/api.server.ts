@@ -16,6 +16,11 @@ interface LoginResponse {
     };
 }
 
+export interface Characteristic {
+    key: string;
+    value: string;
+}
+
 export interface Product {
     _id: string;
     sku: string;
@@ -26,7 +31,9 @@ export interface Product {
     offerPrice?: number;
     description?: string;
     stock: number;
+    reservedStock?: number;
     images: string[];
+    characteristics?: Characteristic[];
     isActive: boolean;
     isTopSales?: boolean;
     createdAt: string;
@@ -42,6 +49,7 @@ export interface CreateProductDTO {
     description?: string;
     stock?: number;
     images?: string[];
+    characteristics?: Characteristic[];
     isActive?: boolean;
     isTopSales?: boolean;
 }
@@ -81,8 +89,12 @@ export interface Sale {
     shippingMethod?: string;
     tax: number;
     total: number;
-    status: 'quote' | 'pending' | 'paid' | 'processing' | 'shipped' | 'delivered' | 'cancelled' | 'rejected';
+    totalPaid: number;
+    status: 'reservation' | 'quote' | 'pending' | 'paid' | 'processing' | 'shipped' | 'delivered' | 'cancelled' | 'rejected';
     paymentMethod?: string;
+    voucherType?: string;
+    reservationType?: 'standard' | 'layaway';
+    reservationExpiresAt?: string;
     quoteDate: string;
     quoteValidUntil?: string;
     paidDate?: string;
@@ -91,6 +103,84 @@ export interface Sale {
     internalNotes?: string;
     parentSaleId?: string;
     createdAt: string;
+}
+
+export type PaymentMethod = 'cash' | 'card' | 'transfer' | 'yape' | 'plin' | 'other';
+
+export interface Payment {
+    _id: string;
+    saleId: string;
+    type: 'payment' | 'refund';
+    amount: number;
+    paymentMethod: PaymentMethod;
+    paymentDate: string;
+    reference?: string;
+    notes?: string;
+    createdBy: string;
+    createdAt: string;
+}
+
+export interface CreatePaymentDTO {
+    amount: number;
+    paymentMethod: PaymentMethod;
+    paymentDate?: string;
+    reference?: string;
+    notes?: string;
+}
+
+export interface CreateRefundDTO {
+    amount: number;
+    paymentMethod: PaymentMethod;
+    paymentDate?: string;
+    reference?: string;
+    notes?: string;
+}
+
+export interface CreateReservationDTO {
+    customerId: string;
+    items: Array<{
+        productId: string;
+        quantity: number;
+        unitPrice?: number;
+        discount?: number;
+    }>;
+    discount?: number;
+    shippingCost?: number;
+    shippingMethod?: string;
+    voucherType?: string;
+    notes?: string;
+    internalNotes?: string;
+    reservationType?: 'standard' | 'layaway';
+}
+
+export interface UpdateReservationDTO {
+    customerId?: string;
+    items?: Array<{
+        productId: string;
+        quantity: number;
+        unitPrice?: number;
+        discount?: number;
+    }>;
+    discount?: number;
+    shippingCost?: number;
+    shippingMethod?: string;
+    voucherType?: string;
+    notes?: string;
+    internalNotes?: string;
+}
+
+export interface StockAvailabilityItem {
+    productId: string;
+    productName: string;
+    sku: string;
+    requested: number;
+    available: number;
+    hasStock: boolean;
+}
+
+export interface StockAvailability {
+    available: boolean;
+    items: StockAvailabilityItem[];
 }
 
 export interface CreateSaleDTO {
@@ -409,6 +499,23 @@ export class ApiClient {
 
         if (!response.ok) {
             throw new Error('Failed to delete product');
+        }
+
+        return response.json();
+    }
+
+    // Clone product
+    async cloneProduct(token: string, id: string) {
+        const response = await this.fetch(`${this.baseUrl}/api/products/${id}/clone`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+            },
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to clone product');
         }
 
         return response.json();
@@ -781,6 +888,25 @@ export class ApiClient {
         return response.json();
     }
 
+    // Check stock availability for a sale/quote
+    async checkStockAvailability(token: string, saleId: string): Promise<StockAvailability> {
+        const response = await this.fetch(`${this.baseUrl}/api/sales/${saleId}/stock-availability`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to check stock availability');
+        }
+
+        const data = await response.json();
+        return {
+            available: data.available,
+            items: data.items
+        };
+    }
+
     // Get sales statistics/reports
     async getSalesStatistics(token: string, startDate?: string, endDate?: string) {
         const params = new URLSearchParams();
@@ -1120,6 +1246,152 @@ export class ApiClient {
 
         if (!response.ok) {
             throw new Error('Failed to fetch expense statistics');
+        }
+
+        return response.json();
+    }
+
+    // ==================== RESERVATIONS ====================
+
+    // Create reservation
+    async createReservation(token: string, data: CreateReservationDTO) {
+        const response = await this.fetch(`${this.baseUrl}/api/sales/reservation`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to create reservation');
+        }
+
+        return response.json();
+    }
+
+    // Update reservation
+    async updateReservation(token: string, id: string, data: UpdateReservationDTO) {
+        const response = await this.fetch(`${this.baseUrl}/api/sales/${id}/reservation`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to update reservation');
+        }
+
+        return response.json();
+    }
+
+    // Confirm reservation
+    async confirmReservation(token: string, id: string) {
+        const response = await this.fetch(`${this.baseUrl}/api/sales/${id}/confirm`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+            },
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to confirm reservation');
+        }
+
+        return response.json();
+    }
+
+    // Cancel reservation
+    async cancelReservation(token: string, id: string) {
+        const response = await this.fetch(`${this.baseUrl}/api/sales/${id}/cancel-reservation`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+            },
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to cancel reservation');
+        }
+
+        return response.json();
+    }
+
+    // ==================== PAYMENTS ====================
+
+    // Get payments for a sale
+    async getPayments(token: string, saleId: string) {
+        const response = await this.fetch(`${this.baseUrl}/api/sales/${saleId}/payments`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch payments');
+        }
+
+        return response.json();
+    }
+
+    // Add payment to a sale
+    async addPayment(token: string, saleId: string, data: CreatePaymentDTO) {
+        const response = await this.fetch(`${this.baseUrl}/api/sales/${saleId}/payments`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to add payment');
+        }
+
+        return response.json();
+    }
+
+    // Add refund to a sale
+    async addRefund(token: string, saleId: string, data: CreateRefundDTO) {
+        const response = await this.fetch(`${this.baseUrl}/api/sales/${saleId}/payments/refund`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to add refund');
+        }
+
+        return response.json();
+    }
+
+    // Delete a payment
+    async deletePayment(token: string, saleId: string, paymentId: string) {
+        const response = await this.fetch(`${this.baseUrl}/api/sales/${saleId}/payments/${paymentId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+            },
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to delete payment');
         }
 
         return response.json();

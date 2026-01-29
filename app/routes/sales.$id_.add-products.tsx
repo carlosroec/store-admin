@@ -99,7 +99,9 @@ export default function AddProducts() {
   };
 
   const handleAddProduct = (product: Product, quantity: number, discount: number) => {
-    const priceAfterDiscount = product.price * (1 - discount / 100);
+    // Use offer price if available, otherwise use regular price
+    const effectivePrice = (product.offerPrice && product.offerPrice > 0) ? product.offerPrice : product.price;
+    const priceAfterDiscount = effectivePrice * (1 - discount / 100);
     const subtotal = priceAfterDiscount * quantity;
 
     setItems([
@@ -109,7 +111,7 @@ export default function AddProducts() {
         sku: product.sku,
         productName: product.name,
         quantity,
-        unitPrice: product.price,
+        unitPrice: effectivePrice,
         discount,
         subtotal,
       },

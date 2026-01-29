@@ -23,9 +23,9 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     const data = await api.getSale(token, id);
     const sale = data.sale;
 
-    // Only quotes can be edited
-    if (sale.status !== "quote") {
-      throw new Response("Only quotes can be edited", { status: 403 });
+    // Only quotes and reservations can be edited
+    if (!["quote", "reservation"].includes(sale.status)) {
+      throw new Response("Only quotes and reservations can be edited", { status: 403 });
     }
 
     return json({ sale });
@@ -69,22 +69,41 @@ export async function action({ request, params }: ActionFunctionArgs) {
   }
 
   try {
-    await api.updateSale(token, id, {
-      customerId,
-      items,
-      discount,
-      shippingCost,
-      shippingMethod,
-      voucherType,
-      quoteValidDays,
-      notes,
-      internalNotes,
-    });
+    // First get the sale to determine its status
+    const saleData = await api.getSale(token, id);
+    const isReservation = saleData.sale.status === 'reservation';
+
+    if (isReservation) {
+      // Use reservation update which handles stock changes
+      await api.updateReservation(token, id, {
+        customerId,
+        items,
+        discount,
+        shippingCost,
+        shippingMethod,
+        voucherType,
+        notes,
+        internalNotes,
+      });
+    } else {
+      // Use regular sale update for quotes
+      await api.updateSale(token, id, {
+        customerId,
+        items,
+        discount,
+        shippingCost,
+        shippingMethod,
+        voucherType,
+        quoteValidDays,
+        notes,
+        internalNotes,
+      });
+    }
 
     return redirect(`/sales/${id}`);
   } catch (error) {
     return json(
-      { errors: { general: error instanceof Error ? error.message : "Failed to update quote" } },
+      { errors: { general: error instanceof Error ? error.message : "Failed to update" } },
       { status: 400 }
     );
   }
@@ -191,8 +210,19 @@ export default function EditSale() {
           >
             &larr; Back to Sale Details
           </Link>
-          <h2 className="text-3xl font-bold text-gray-900">Edit Quote: {sale.saleNumber}</h2>
+          <h2 className="text-3xl font-bold text-gray-900">
+            Edit {sale.status === 'reservation' ? 'Reservation' : 'Quote'}: {sale.saleNumber}
+          </h2>
         </div>
+
+        {sale.status === 'reservation' && (
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6">
+            <p className="text-sm text-orange-800">
+              <strong>Note:</strong> Editing this reservation will automatically adjust stock reservations.
+              Adding products will reserve additional stock, removing or reducing quantities will release stock.
+            </p>
+          </div>
+        )}
 
         <Form method="post" className="space-y-6">
           {/* Customer Selection */}

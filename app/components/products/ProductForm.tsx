@@ -5,6 +5,7 @@ import { Input } from "../ui/Input";
 import { Button } from "../ui/Button";
 import { ImageUpload } from "../ui/ImageUpload";
 import { MarkdownEditor } from "../ui/MarkdownEditor";
+import { CharacteristicsEditor } from "./CharacteristicsEditor";
 
 interface ProductFormProps {
   product?: Product;
@@ -174,7 +175,13 @@ export function ProductForm({ product, errors, categories = [], brands = [] }: P
         rows={6}
         error={errors?.description}
       />
-      
+
+      {/* Characteristics */}
+      <CharacteristicsEditor
+        defaultValue={product?.characteristics}
+        error={errors?.characteristics}
+      />
+
       {/* Images */}
       <ImageUpload
         images={images}

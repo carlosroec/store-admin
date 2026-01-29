@@ -72,7 +72,15 @@ export async function action({ request, params }: ActionFunctionArgs) {
   const imageArray = images
     ? images.split('\n').map(url => url.trim()).filter(Boolean)
     : [];
-  
+
+  const characteristicsRaw = formData.get('characteristics') as string;
+  let characteristics = [];
+  try {
+    characteristics = characteristicsRaw ? JSON.parse(characteristicsRaw) : [];
+  } catch {
+    characteristics = [];
+  }
+
   const productData = {
     sku: formData.get('sku') as string,
     name: formData.get('name') as string,
@@ -83,6 +91,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     description: formData.get('description') as string || undefined,
     stock: parseInt(formData.get('stock') as string),
     images: imageArray,
+    characteristics,
     isTopSales: formData.get('isTopSales') === 'on',
   };
   
